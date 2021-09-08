@@ -1,14 +1,18 @@
 import { Chart } from '../node_modules/chart.js/dist/chart.js'
+let chart = Chart;
+let currentGil = 20;
+let chartIndex = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
+    setInterval(addMockData, 5000);
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
-    var chart = new Chart(ctx, {
+    chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+            labels: [],
             datasets: [{
                 label: '# Of Currency',
-                data: [4,2,3,5,7,12,15,14,13,18,19,22,27,29,31,34,38,43,49,48],
+                data: [],
                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
                 borderColor: 'rgba(255, 99, 132, 1)',
                 borderWidth: 1
@@ -25,7 +29,30 @@ window.addEventListener('DOMContentLoaded', () => {
                     beginAtZero: false
                 }
             },
-            maintainAspectRatio: false
+            maintainAspectRatio: false,
+            normalized: true
         }
     });
+
+    // Generate initial mock data
+    let tempData = [];
+    let tempLabels = [];
+    for (chartIndex = 0; chartIndex < 100; chartIndex++) {
+        currentGil += Math.floor(Math.random() * 10) - Math.floor(Math.random() * 8);
+        tempLabels.push(chartIndex);
+        tempData.push(currentGil);
+    }
+    chart.data.labels = tempLabels;
+    chart.data.datasets[0].data = tempData;
+    chart.update();
 })
+
+// Add mock data to chart
+function addMockData() {
+    currentGil += Math.floor(Math.random() * 10) - Math.floor(Math.random() * 8)
+    chart.data.labels.push(chartIndex);
+    chart.data.datasets[0].data.push(currentGil);
+    chartIndex += 1;
+    chart.update();
+    window.resizeBy(1, 1);
+}
