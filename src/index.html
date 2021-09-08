@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+    <link rel="stylesheet" href="style.css">
+    <script src="index.js" type="module"></script>
+    <title>GilTracker</title>
+</head>
+
+<body>
+    <div id="parent">
+        <select name="currency-select" id="currency-select">
+            <option>Gil</option>
+            <option>Ventures</option>
+            <option>Company Seals</option>
+            <option>MGP</option>
+            <option>Centurio Seals</option>
+            <option>Scrips</option>
+            <option>Wolf Marks</option>
+        </select>
+        <div id="content">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+</body>
+
+</html>
