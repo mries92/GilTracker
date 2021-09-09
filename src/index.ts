@@ -1,4 +1,6 @@
 import { Chart } from '../node_modules/chart.js/dist/chart.js'
+import '../node_modules/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle'
+
 let chart = Chart;
 let currentGil = 20;
 let chartIndex = 0;
@@ -25,6 +27,12 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
             },
             scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'hour'
+                    }
+                },
                 y: {
                     beginAtZero: false
                 }
@@ -37,7 +45,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Generate initial mock data
     let tempData = [];
     let tempLabels = [];
-    for (chartIndex = 0; chartIndex < 100; chartIndex++) {
+    for (chartIndex = 0; chartIndex < 20; chartIndex += Math.floor(Math.random() * 5)) {
         currentGil += Math.floor(Math.random() * 10) - Math.floor(Math.random() * 8);
         tempLabels.push(chartIndex);
         tempData.push(currentGil);
