@@ -4,6 +4,10 @@
     --accent-color: rgb(94, 94, 94);
 }
 
+* {
+    box-sizing: border-box;
+}
+
 html {
     margin: 0px;
     width: 100%;
@@ -12,7 +16,6 @@ html {
 }
 
 body {
-    box-sizing: border-box;
     margin: 0px;
     padding: 4px;
     width: 100%;
@@ -37,4 +40,23 @@ body {
     background-color: var(--bg-color);
     color: white;
     border-color: var(--highlight-color);
+}
+
+.modal {
+    z-index: 10;
+    margin: 60px;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: absolute;
+}
+
+.modalbg {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    backdrop-filter: blur(1px);
 }

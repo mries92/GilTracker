@@ -5,6 +5,11 @@
 
 fn main() {
   tauri::Builder::default()
+    .on_page_load(|_, _| {
+    })
+    .setup(|_| {
+      Ok(())
+    })
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
