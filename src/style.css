@@ -1,5 +1,6 @@
 :root {
     --bg-color: rgb(44, 44, 44);
+    --modal-bg-color: rgb(32, 32, 32);
     --highlight-color: rgb(129, 129, 129);
     --accent-color: rgb(94, 94, 94);
 }
@@ -44,12 +45,26 @@ body {
 
 .modal {
     z-index: 10;
-    margin: 60px;
-    top: 0;
-    bottom: 0;
-    left: 0;
+    width: 300px;
+    height: 50px;
+    left: 0; 
     right: 0;
+    top: 0; 
+    bottom: 0; 
+    margin: auto;
+    background-color: var(--modal-bg-color);
+    border-radius: 3px;
     position: absolute;
+}
+
+.modal p {
+    left: 0; 
+    right: 0;
+    top: 0; 
+    bottom: 0;
+    color: white;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .modalbg {
