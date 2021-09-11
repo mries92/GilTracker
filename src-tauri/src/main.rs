@@ -16,13 +16,13 @@ use sysinfo::{ProcessExt, System, SystemExt};
 fn main() {
   tauri::Builder::default()
     .setup(|_| {
-      let scheduler = thread::spawn(|| {
+      let _scheduler = thread::spawn(|| {
         let mut sys = System::new_all();
         let run = true;
         let mut found = false;
         let mut process_id: usize = 1 as usize;
         let process_scan_interval = Duration::from_secs(3);
-        let currency_scan_interval = Duration::from_secs(30);
+        let _currency_scan_interval = Duration::from_secs(10);
         // Main background scanning loop
         while run == true {
           sys.refresh_processes();
@@ -33,7 +33,7 @@ fn main() {
               if process.name() == "ffxiv_dx11.exe" {
                 found = true;
                 process_id = *pid;
-                println!("FOUND!!!");
+                println!("Found game process: {}", process_id);
                 break;
               }
             }
@@ -45,7 +45,13 @@ fn main() {
           }
           // Scan for values
           else {
-            let bytes = read_memory(process_id as u32, 1 as usize, 1 as usize).expect("Error bitch.");
+            let start = Instant::now();
+            let bytes = read_memory(process_id as Pid, 0x01DD4358 + 0x78 + 0xC, 4).unwrap();
+            println!("Gil scanned: {}", bytes[0]);
+            let runtime = start.elapsed();
+            if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
+                thread::sleep(remaining);
+            }
           }
         }
       });
@@ -56,7 +62,10 @@ fn main() {
 }
 
 fn read_memory(pid: Pid, address: usize, size: usize) -> io::Result<Vec<u8>> {
+  println!("Starting scan...");
   let handle: ProcessHandle = pid.try_into()?;
+  println!("Got handle...");
+  println!("Reading value at: {}", address);
   let _bytes = copy_address(address, size, &handle)?;
   println!("Read {} bytes", size);
   Ok(_bytes)
