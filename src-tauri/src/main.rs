@@ -46,8 +46,14 @@ fn main() {
           // Scan for values
           else {
             let start = Instant::now();
-            let bytes = read_memory(process_id as Pid, 0x01DD4358 + 0x78 + 0xC, 4).unwrap();
-            println!("Gil scanned: {}", bytes[0]);
+            let bytes = read_memory(process_id as Pid, 0x200F3161800 + 0x78, 8).unwrap();
+            let str : String = hex::encode(bytes);
+            println!("Wallet address: 0x{}", str);
+            let address : usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+            let bytes : Vec<u8> = read_memory(process_id as Pid, address + 0xC, 4).unwrap();
+            let str : String = hex::encode(bytes);
+            let gil : i32 = i32::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+            println!("Gil: {}\n\n", gil);
             let runtime = start.elapsed();
             if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
                 thread::sleep(remaining);
@@ -62,11 +68,10 @@ fn main() {
 }
 
 fn read_memory(pid: Pid, address: usize, size: usize) -> io::Result<Vec<u8>> {
-  println!("Starting scan...");
   let handle: ProcessHandle = pid.try_into()?;
-  println!("Got handle...");
-  println!("Reading value at: {}", address);
-  let _bytes = copy_address(address, size, &handle)?;
+  println!("Reading value at: 0x{}", address);
+  let mut _bytes = copy_address(address, size, &handle)?;
+  _bytes.reverse(); // Flip the bytes so they are easier to work with (little endian to big)
   println!("Read {} bytes", size);
   Ok(_bytes)
 }
