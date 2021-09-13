@@ -10,24 +10,19 @@ mod bindings {
 }
 
 use bindings::{
+  Windows::Win32::System::Diagnostics::Debug::{GetLastError},
   Windows::Win32::System::ProcessStatus::{K32EnumProcessModules},
-  Windows::Win32::System::Threading::{OpenProcess, PROCESS_ALL_ACCESS},
+  Windows::Win32::System::Threading::{OpenProcess, PROCESS_ALL_ACCESS, PROCESS_VM_READ, PROCESS_QUERY_INFORMATION},
   Windows::Win32::Foundation::{BOOL, HINSTANCE, HWND, HANDLE},
   Windows::Win32::UI::WindowsAndMessaging::{FindWindowA},
 };
-
-/*
-#[cfg(windows)] extern crate winapi;
-use winapi::um::psapi::{EnumProcessModules, GetModuleFileNameExA};
-use winapi::um::processthreadsapi::OpenProcess;
-use winapi::shared::minwindef::{DWORD, BOOL, HMODULE, MAX_PATH};
-use winapi::um::winnt::{PROCESS_ALL_ACCESS, HANDLE, LPSTR};*/
 
 use read_process_memory::{copy_address, CopyAddress, Pid, ProcessHandle};
 use std::{
   convert::TryInto,
   io, thread,
   time::{Duration, Instant},
+  mem::{MaybeUninit}
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
@@ -69,17 +64,27 @@ fn main() {
           // Scan for values
           else {
             let handle = get_handle(process_id as u32).expect("Not sure how this happened.");
-            let module = get_module(handle);
+            let module : u64 = get_module(handle).expect("Module not found.");
+            println!("Module Address: {}", module);
 
             let start = Instant::now();
-            let bytes = read_memory(process_id as Pid, base_offset + 0x78, 8).unwrap();
+
+            // Base
+            let bytes = read_memory(process_id as Pid, module as usize + 0x01DD4358, 8).unwrap();
             let str: String = hex::encode(bytes);
-            println!("Wallet address: 0x{}", str);
+            println!("Static offset address: 0x{}", str);
             let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
-            let bytes: Vec<u8> = read_memory(process_id as Pid, address + 0xC, 4).unwrap();
+
+            // First offset
+            let bytes: Vec<u8> = read_memory(process_id as Pid, address + 0x78, 8).unwrap();
             let str: String = hex::encode(bytes);
-            let gil: i32 = i32::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+            let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+
+            // Final offset
+            let bytes: Vec<u8> = read_memory(process_id as Pid, address + 0xC, 4).unwrap();
+            let gil: u32 = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
             println!("Gil: {}\n\n", gil);
+
             let runtime = start.elapsed();
             if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
               thread::sleep(remaining);
@@ -93,42 +98,37 @@ fn main() {
     .expect("error while running tauri application");
 }
 
+// Read an array of bytes from a memory location
 fn read_memory(pid: Pid, address: usize, size: usize) -> io::Result<Vec<u8>> {
   let handle: ProcessHandle = pid.try_into()?;
-  println!("Reading value at: 0x{}", address);
   let mut _bytes = copy_address(address, size, &handle)?;
   _bytes.reverse(); // Flip the bytes so they are easier to work with (little endian to big)
-  println!("Read {} bytes", size);
   Ok(_bytes)
 }
 
 // Get a win32 handle to a process by process ID
 fn get_handle(pid: u32) -> io::Result<HANDLE> {
-  let handle: HANDLE;
+  let mut handle: HANDLE;
   unsafe {
-    handle= OpenProcess(PROCESS_ALL_ACCESS, BOOL::from(false), pid);
+    handle = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, BOOL::from(false), pid);
   }
   Ok(handle)
 }
 
 // Get the base module of a process by process ID
-fn get_module(handle: HANDLE) -> io::Result<u32> {
-
-  let mut hmods: *mut HINSTANCE = std::ptr::null_mut();
-  let mut cbneeded: *mut u32 = std::ptr::null_mut();
+fn get_module(handle: HANDLE) -> io::Result<u64> {
+  let mut hmods;
   unsafe {
-    if K32EnumProcessModules(handle, hmods, 1024, cbneeded) == true {
-      /*
-      // Loop through each module until we find the game
-      let mut i = 0;
-      while i < (cbneeded / std::mem::size_of::<HMODULE>() as u32){
-        let filename: [LPSTR; MAX_PATH];
-        if GetModuleFileNameExA(handle.0, hmods, filename, std::mem::size_of::<filename>() / std::mem::size_of::<LPSTR>()) == 1 {
-  
-        }
-        i += 1;
-      }*/
+    hmods = MaybeUninit::<[MaybeUninit<HINSTANCE>; 1024]>::uninit().assume_init();
+  }
+  let ptr = hmods.as_mut_ptr() as *mut HINSTANCE;
+  let mut cbneeded: u32 = 0;
+  let mut module_id: u64 = 0;
+  unsafe {
+    if K32EnumProcessModules(handle, ptr, 1024, &mut cbneeded) == BOOL::from(true) {
+      // Base module is always first
+      module_id = hmods[0].assume_init().0 as u64;
     }
   }
-  Ok((32))
+  Ok((module_id))
 }
