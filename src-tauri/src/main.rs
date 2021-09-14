@@ -16,7 +16,7 @@ use bindings::{
 };
 
 use read_process_memory::{copy_address, Pid, ProcessHandle};
-use std::{convert::TryInto, io, mem::MaybeUninit, ops::{Deref, DerefMut}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
+use std::{convert::TryInto, io, mem::MaybeUninit, ops::{Deref}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() {

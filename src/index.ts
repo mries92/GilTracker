@@ -1,4 +1,5 @@
 import { Chart } from '../node_modules/chart.js/dist/chart.js'
+import { invoke } from '../node_modules/@tauri-apps/api/tauri.js'
 import '../node_modules/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle'
 
 let chart = Chart;
@@ -6,6 +7,7 @@ let currentGil = 20;
 let chartIndex = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
+    invoke('get_gil').then(console.log).catch(console.error);
     setInterval(addMockData, 5000);
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     chart = new Chart(ctx, {
