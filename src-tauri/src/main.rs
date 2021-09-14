@@ -16,29 +16,24 @@ use bindings::{
 };
 
 use read_process_memory::{copy_address, Pid, ProcessHandle};
-use std::{
-  convert::TryInto,
-  io,
-  mem::MaybeUninit,
-  ops::Deref,
-  sync::{Arc, Mutex},
-  thread,
-  time::{Duration, Instant},
-};
+use std::{convert::TryInto, io, mem::MaybeUninit, ops::{Deref, DerefMut}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() {
   let scanner = Arc::new(Mutex::new(Scanner::new()));
+  scanner_attach_thread(scanner.clone());
   tauri::Builder::default()
     .setup(|_| Ok(()))
     .manage(scanner)
+    .invoke_handler(tauri::generate_handler![get_gil])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
 
 #[tauri::command]
-fn get_gil(state: tauri::State<Scanner>) -> u32 {
-  return state.get_gil();
+fn get_gil(state: tauri::State<Arc<Mutex<Scanner>>>) -> u32{
+  println!("CALLED FROM JS!");
+  return state.deref().deref().lock().expect("Scanner like has to be here bro").get_gil();
 }
 
 // Start the thread responsible for attempting to attach to the game
