@@ -1,5 +1,5 @@
 import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
-import { invoke } from '@tauri-apps/api/tauri'
+//import { invoke } from '@tauri-apps/api/tauri'
 
 Chart.register(
     LinearScale,
@@ -10,8 +10,8 @@ Chart.register(
 );
 
 let chart: Chart;
-let currentGil = 20;
-let chartIndex = 0;
+//let currentGil = 20;
+//let chartIndex = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('settings-button')?.addEventListener('click', function() {
@@ -24,7 +24,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 div.classList.add("animate-fade");
                 setTimeout( () => {
                     div!.style.visibility = "hidden";
-                }, 400);
+                }, 200);
             }
         }
     });
@@ -60,14 +60,3 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 })
-
-// Add mock data to chart
-function addMockData() {
-    currentGil += Math.floor(Math.random() * 10) - Math.floor(Math.random() * 8)
-    chart.data.labels?.push(chartIndex);
-    if(chart.data.datasets)
-        chart.data.datasets[0].data?.push(currentGil);
-    chartIndex += 1;
-    chart.update();
-    window.resizeBy(1, 1);
-}
