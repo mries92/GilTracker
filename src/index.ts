@@ -14,10 +14,20 @@ let currentGil = 20;
 let chartIndex = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('test-button')?.addEventListener('click', function() {
-        addMockData();
+    document.getElementById('settings-button')?.addEventListener('click', function() {
+        let div = document.getElementById('settings-modal');
+        if(div) {
+            if(div.classList.contains("animate-fade")) {
+                div.style.visibility = "visible";
+                div.classList.remove("animate-fade");
+            } else {
+                div.classList.add("animate-fade");
+                setTimeout( () => {
+                    div!.style.visibility = "hidden";
+                }, 400);
+            }
+        }
     });
-
     document.getElementById('settings-button')?.addEventListener('mouseenter', function(this) {
         this.classList.toggle('md-inactive');
     });
@@ -25,7 +35,6 @@ window.addEventListener('DOMContentLoaded', () => {
         this.classList.toggle('md-inactive');
     });
 
-    //setInterval(function(){invoke('get_gil');}, 10000);
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
         chart = new Chart(ctx, {
