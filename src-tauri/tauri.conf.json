@@ -1,13 +1,13 @@
 {
   "package": {
-    "productName": "giltracker",
+    "productName": "gil-tracker",
     "version": "0.1.0"
   },
   "build": {
-    "distDir": "../dist",
-    "devPath": "http://localhost:1234",
-    "beforeDevCommand": "npm run start",
-    "beforeBuildCommand": "npm run build"
+    "distDir": "../src",
+    "devPath": "http://localhost:3000",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": ""
   },
   "tauri": {
     "bundle": {
