@@ -46,8 +46,7 @@ fn main() {
 
 #[tauri::command]
 fn get_gil(state: tauri::State<Arc<Mutex<Scanner>>>) -> u32{
-  println!("CALLED FROM JS!");
-  return state.deref().deref().lock().expect("Scanner like has to be here bro").get_gil();
+  return state.deref().deref().lock().expect("Scanner missing").get_gil();
 }
 
 // Start the thread responsible for attempting to attach to the game
@@ -98,6 +97,7 @@ fn scanner_attach_thread(scanner: Arc<Mutex<Scanner>>) {
 
 // Game scanning struct. Implements methods for reading values from game memory.
 struct Scanner {
+  currently_scanning: bool,
   gil_offsets: [usize; 3],
   process_id: usize,   // Base process id
   base_address: usize, // Base address
@@ -106,6 +106,7 @@ struct Scanner {
 impl Scanner {
   fn new() -> Scanner {
     let scanner = Scanner {
+      currently_scanning: true,
       process_id: 1,
       base_address: 1,
       gil_offsets: [0x01DD4358, 0x78, 0xC]
@@ -133,7 +134,7 @@ impl Scanner {
   // Read an array of bytes from a memory location
   fn read_memory(pid: Pid, address: usize, size: usize) -> io::Result<Vec<u8>> {
     let handle: ProcessHandle = pid.try_into()?;
-    let mut _bytes = copy_address(address, size, &handle)?;
+    let mut _bytes = copy_address(address, size, &handle).expect("Problem");
     _bytes.reverse(); // Flip the bytes so they are easier to work with (little endian to big)
     Ok(_bytes)
   }

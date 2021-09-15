@@ -4,26 +4,45 @@
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="./src/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet">
     <script src="./src/index.ts" type="module"></script>
     <title>GilTracker</title>
 </head>
 
 <body>
     <div id="parent">
-        <select name="currency-select" id="currency-select">
-            <option>Gil</option>
-            <option>Ventures</option>
-            <option>Company Seals</option>
-            <option>MGP</option>
-            <option>Centurio Seals</option>
-            <option>Scrips</option>
-            <option>Wolf Marks</option>
-        </select>
+        <div style="position: absolute; right: 0; top: 0; display: flex; flex-direction: row;">
+            <div style="display: flex; flex-direction: column;">
+                <select name="currency-select" id="currency-select">
+                    <option>Gil</option>
+                    <option>Ventures</option>
+                    <option>Company Seals</option>
+                    <option>MGP</option>
+                    <option>Centurio Seals</option>
+                    <option>Scrips</option>
+                    <option>Wolf Marks</option>
+                </select>
+                <select name="time-select" id="time-select">
+                    <option>24 hours</option>
+                    <option>3 days</option>
+                    <option>1 week</option>
+                    <option>1 month</option>
+                    <option>3 months</option>
+                    <option>6 months</option>
+                    <option>1 year</option>
+                </select>
+                <div id="status-indicator-div">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" style="vertical-align: bottom;">
+                        <circle id="status-circle" cx="5" cy="5" r="5" fill="red" />
+                    </svg>
+                    <p style="margin-right: 5px;">Not Attached</p>
+                </div>
+            </div>
+            <span class="material-icons md-light md-inactive" id="settings-button" style="height: fit-content;">settings</span>
+        </div>
         <div id="content">
             <canvas id="chart"></canvas>
-        </div>
-        <div id="status_bar">
-            <input id="test-button" type="button" value="Test">
         </div>
     </div>
 </body>

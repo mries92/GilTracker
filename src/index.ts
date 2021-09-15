@@ -17,7 +17,15 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('test-button')?.addEventListener('click', function() {
         addMockData();
     });
-    setInterval(scanForGil, 10000);
+
+    document.getElementById('settings-button')?.addEventListener('mouseenter', function(this) {
+        this.classList.toggle('md-inactive');
+    });
+    document.getElementById('settings-button')?.addEventListener('mouseleave', function(this) {
+        this.classList.toggle('md-inactive');
+    });
+
+    //setInterval(function(){invoke('get_gil');}, 10000);
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
         chart = new Chart(ctx, {
@@ -43,10 +51,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 })
-
-function scanForGil() {
-    invoke('');
-}
 
 // Add mock data to chart
 function addMockData() {
