@@ -1,5 +1,5 @@
-import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from '../node_modules/chart.js/dist/chart.esm.js'
-import { invoke } from '../node_modules/@tauri-apps/api/tauri.js'
+import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
+import { invoke } from '@tauri-apps/api/tauri'
 
 Chart.register(
     LinearScale,
@@ -14,6 +14,10 @@ let currentGil = 20;
 let chartIndex = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('test-button')?.addEventListener('click', function() {
+        addMockData();
+    });
+    setInterval(scanForGil, 10000);
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
         chart = new Chart(ctx, {
@@ -39,6 +43,10 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 })
+
+function scanForGil() {
+    invoke('');
+}
 
 // Add mock data to chart
 function addMockData() {

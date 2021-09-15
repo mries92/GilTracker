@@ -16,18 +16,32 @@ use bindings::{
 };
 
 use read_process_memory::{copy_address, Pid, ProcessHandle};
-use std::{convert::TryInto, io, mem::MaybeUninit, ops::{Deref}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
+use std::{convert::TryInto, io, env, mem::MaybeUninit, ops::{Deref}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() {
+  let args: Vec<String> = env::args().collect();
+  let mut background = false;
+  println!("{:?}", args);
+  for arg in args {
+    if arg == "--background" {
+      background = true;
+      break;
+    }
+  }
+
   let scanner = Arc::new(Mutex::new(Scanner::new()));
-  scanner_attach_thread(scanner.clone());
-  tauri::Builder::default()
-    .setup(|_| Ok(()))
-    .manage(scanner)
-    .invoke_handler(tauri::generate_handler![get_gil])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+  if background {
+    println!("Started background?");
+  } else {
+    scanner_attach_thread(scanner.clone());
+    tauri::Builder::default()
+      .setup(|_| Ok(()))
+      .manage(scanner)
+      .invoke_handler(tauri::generate_handler![get_gil])
+      .run(tauri::generate_context!())
+      .expect("error while running tauri application");
+  }
 }
 
 #[tauri::command]
@@ -84,6 +98,7 @@ fn scanner_attach_thread(scanner: Arc<Mutex<Scanner>>) {
 
 // Game scanning struct. Implements methods for reading values from game memory.
 struct Scanner {
+  gil_offsets: [usize; 3],
   process_id: usize,   // Base process id
   base_address: usize, // Base address
 }
@@ -93,6 +108,7 @@ impl Scanner {
     let scanner = Scanner {
       process_id: 1,
       base_address: 1,
+      gil_offsets: [0x01DD4358, 0x78, 0xC]
     };
     return scanner;
   }
@@ -101,15 +117,15 @@ impl Scanner {
   fn get_gil(&self) -> u32 {
     // Static pointer
     let bytes =
-      Scanner::read_memory(self.process_id as Pid, self.base_address + 0x01DD4358, 8).unwrap();
+      Scanner::read_memory(self.process_id as Pid, self.base_address + self.gil_offsets[0], 8).unwrap();
     let str: String = hex::encode(bytes);
     let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
     // First offset
-    let bytes: Vec<u8> = Scanner::read_memory(self.process_id as Pid, address + 0x78, 8).unwrap();
+    let bytes: Vec<u8> = Scanner::read_memory(self.process_id as Pid, address + self.gil_offsets[1], 8).unwrap();
     let str: String = hex::encode(bytes);
     let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
     // Final offset
-    let bytes: Vec<u8> = Scanner::read_memory(self.process_id as Pid, address + 0xC, 4).unwrap();
+    let bytes: Vec<u8> = Scanner::read_memory(self.process_id as Pid, address + self.gil_offsets[2], 4).unwrap();
     let gil: u32 = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
     return gil;
   }

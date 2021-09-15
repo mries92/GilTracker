@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "scripts": {
     "tauri": "tauri",
-    "dev": "vite serve src",
-    "build": "tsc && vite build",
+    "dev": "vite serve",
+    "build": "tsc --noEmit && vite build",
     "serve": "vite preview"
   },
   "devDependencies": {
@@ -15,6 +15,7 @@
   "dependencies": {
     "@tauri-apps/api": "^1.0.0-beta.8",
     "@types/chart.js": "^2.9.34",
+    "@types/offscreencanvas": "^2019.6.3",
     "chart.js": "^3.5.1"
   }
 }
