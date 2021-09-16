@@ -49,7 +49,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }).catch(() => {
             console.log("Error reading gil from game.");
         });
-    }, 60000 * 3); // A sane default for now I think, reads a value every 3 minutes
+    }, 2000/*60000 * 3*/);
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
