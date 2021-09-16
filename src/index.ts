@@ -36,9 +36,20 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     setInterval(function(){
-        let p = invoke('get_gil')
-        console.log(p);
-    }, 5000);
+        let p = invoke('get_gil');
+        p.then((g) => {
+            // Wallet value will read as 0 until player is fully logged in
+            if(g != 0) {
+                chart.data.labels?.push(1);
+                chart.data.datasets.forEach((dataset) => {
+                    dataset.data.push(g as number);
+                });
+                chart.update();
+            }
+        }).catch(() => {
+            console.log("Error reading gil from game.");
+        });
+    }, 60000 * 3); // A sane default for now I think, reads a value every 3 minutes
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
