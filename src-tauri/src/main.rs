@@ -16,13 +16,13 @@ use bindings::{
 };
 
 use read_process_memory::{copy_address, Pid, ProcessHandle};
-use std::{convert::TryInto, io, env, mem::MaybeUninit, ops::{Deref}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
+use std::{convert::TryInto, env, error::Error, fmt, io, mem::MaybeUninit, num::ParseIntError, ops::{Deref}, sync::{Arc, Mutex, atomic::{AtomicBool, AtomicUsize, Ordering}}, thread, time::{Duration, Instant}};
 use sysinfo::{ProcessExt, System, SystemExt};
+use thiserror::{Error};
 
 fn main() {
   let args: Vec<String> = env::args().collect();
   let mut background = false;
-  println!("{:?}", args);
   for arg in args {
     if arg == "--background" {
       background = true;
@@ -30,11 +30,11 @@ fn main() {
     }
   }
 
-  let scanner = Arc::new(Mutex::new(Scanner::new()));
+  let scanner = Scanner::new();
   if background {
     println!("Started background?");
   } else {
-    scanner_attach_thread(scanner.clone());
+    scanner.start_scan();
     tauri::Builder::default()
       .setup(|_| Ok(()))
       .manage(scanner)
@@ -45,98 +45,173 @@ fn main() {
 }
 
 #[tauri::command]
-fn get_gil(state: tauri::State<Arc<Mutex<Scanner>>>) -> u32{
-  return state.deref().deref().lock().expect("Scanner missing").get_gil();
+fn get_gil(state: tauri::State<Scanner>) -> Result<u32, ScanError> {
+  state.get_gil()
 }
 
-// Start the thread responsible for attempting to attach to the game
-// process. Thread dies after game process is found.
-fn scanner_attach_thread(scanner: Arc<Mutex<Scanner>>) {
-  let scanner_cpy = scanner.clone();
-  std::thread::spawn(move || {
-    let mut sys = System::new_all();
-    let mut run = true;
-    let mut found = false;
-    let process_scan_interval = Duration::from_secs(3);
-    // Main background scanning loop
-    while run == true {
-      sys.refresh_processes();
-      // Search for game process
-      if !found {
-        let start = Instant::now();
-        for (pid, process) in sys.processes() {
-          if process.name() == "ffxiv_dx11.exe" {
-            found = true;
-            let handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
-            let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
-            println!("Found game process, exiting scanning thread.");
-            scanner_cpy
-              .deref()
-              .lock()
-              .expect("This should always have a value, even if its just default")
-              .base_address = ba;
-            scanner_cpy
-              .deref()
-              .lock()
-              .expect("This should always have a value, even if its just default")
-              .process_id = *pid;
-            run = false;
-            break;
-          }
-        }
-        let runtime = start.elapsed();
-        // If there is time left in the scheduler, sleep thread
-        if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
-          thread::sleep(remaining);
-        }
-      }
+
+#[derive(Error, Debug)]
+enum ScanError {
+  #[error("Could not convert process id to valid handle")]
+  HandleConversionError,
+  #[error("Not attached to the game process")]
+  NotAttached,
+  #[error("Failed to read memory at requested location")]
+  MemoryReadError
+}
+
+impl ScanError {
+  const fn code(&self) -> &'static str {
+    match self {
+      ScanError::HandleConversionError => "HandleConversionError",
+      ScanError::NotAttached => "NotAttached",
+      ScanError::MemoryReadError => "MemoryReadError"
     }
-  });
+  }
 }
 
+impl serde::Serialize for ScanError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+          use serde::ser::SerializeStruct;
+          let mut state = serializer.serialize_struct("Error", 2)?;
+          state.serialize_field("code", &self.code())?;
+          state.serialize_field("description", &self.to_string())?;
+          state.end()
+    }
+}
 
-// Game scanning struct. Implements methods for reading values from game memory.
+/** Game scanning struct. Implements methods for reading values from game memory.
+  * Most of the scanner operations are done on a background thread. The members
+  * are therefore Arc<>, as we will be reading from them even while scans are in
+  * progress.
+  */
 struct Scanner {
-  currently_scanning: bool,
   gil_offsets: [usize; 3],
-  process_id: usize,   // Base process id
-  base_address: usize, // Base address
+  attached: Arc<AtomicBool>,
+  scan_in_progress: Arc<AtomicBool>, // Important to prevent starting multiple scan threads
+  process_id: Arc<AtomicUsize>,   // Base process id
+  base_address: Arc<AtomicUsize>, // Base address
 }
 
 impl Scanner {
   fn new() -> Scanner {
     let scanner = Scanner {
-      currently_scanning: true,
-      process_id: 1,
-      base_address: 1,
+      attached: Arc::new(AtomicBool::new(false)),
+      scan_in_progress: Arc::new(AtomicBool::new(false)),
+      process_id: Arc::new(AtomicUsize::new(1)),
+      base_address: Arc::new(AtomicUsize::new(1)),
       gil_offsets: [0x01DD4358, 0x78, 0xC]
     };
     return scanner;
   }
 
-  // Get the players current Gil
-  fn get_gil(&self) -> u32 {
-    // Static pointer
-    let bytes =
-      Scanner::read_memory(self.process_id as Pid, self.base_address + self.gil_offsets[0], 8).unwrap();
-    let str: String = hex::encode(bytes);
-    let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
-    // First offset
-    let bytes: Vec<u8> = Scanner::read_memory(self.process_id as Pid, address + self.gil_offsets[1], 8).unwrap();
-    let str: String = hex::encode(bytes);
-    let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
-    // Final offset
-    let bytes: Vec<u8> = Scanner::read_memory(self.process_id as Pid, address + self.gil_offsets[2], 4).unwrap();
-    let gil: u32 = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-    return gil;
+  // Starts an asynchronous scan for the game process.
+  fn start_scan(&self) {
+    // Only start a scan if there is not already one in progress. Callers can be patient ;)
+    if !self.scan_in_progress.load(Ordering::Relaxed) {
+      self.scan_in_progress.store(true, Ordering::Relaxed);
+      self.attached.store(false, Ordering::Relaxed);
+      let base_address = self.base_address.clone();
+      let process_id = self.process_id.clone();
+      let attached = self.attached.clone();
+      let scan_in_progress = self.scan_in_progress.clone();
+      std::thread::spawn(move || {
+        let mut sys = System::new_all();
+        let mut found = false;
+        let process_scan_interval = Duration::from_secs(3);
+        // Main background scanning loop
+        while found == false {
+          let start = Instant::now();
+          sys.refresh_processes();
+          for (pid, process) in sys.processes() {
+            if process.name() == "ffxiv_dx11.exe" {
+              let handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
+              let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
+              println!("Found game process, exiting scanning thread.");
+              base_address.store(ba, Ordering::Relaxed);
+              process_id.store(*pid, Ordering::Relaxed);
+              attached.store(true, Ordering::Relaxed);
+              found = true;
+              break;
+            }
+          }
+          let runtime = start.elapsed();
+            // If there is time left in the scheduler, sleep thread
+            if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
+              thread::sleep(remaining);
+          }
+        }
+        scan_in_progress.store(false, Ordering::Relaxed);
+      });
+    }
   }
 
-  // Read an array of bytes from a memory location
-  fn read_memory(pid: Pid, address: usize, size: usize) -> io::Result<Vec<u8>> {
-    let handle: ProcessHandle = pid.try_into()?;
-    let mut _bytes = copy_address(address, size, &handle).expect("Problem");
-    _bytes.reverse(); // Flip the bytes so they are easier to work with (little endian to big)
-    Ok(_bytes)
+  // Get the players current Gil
+  fn get_gil(&self) -> Result<u32, ScanError> {
+    if !self.attached.load(Ordering::Relaxed) {
+      return Err(ScanError::NotAttached);
+    }
+    // Error handling must be done for each read. The game process could have closed in between calls.
+    // Static pointer
+    let base = self.base_address.as_ref();
+    let bytes = self.read_memory(base.load(Ordering::Relaxed) + self.gil_offsets[0], 8);
+    let bytes = match bytes {
+      Ok(bytes) => bytes,
+      Err(err) => {
+        // Start scanning for the game process again
+        self.start_scan();
+        return Err(err);
+      }
+    };
+    // Parse the bytes into a hex string
+    let str: String = hex::encode(bytes);
+    // If at this point, this should succeed. Still, // TODO add handling with custom error type
+    let address = usize::from_str_radix(&str, 16).unwrap();
+
+    // First offset
+    let bytes = self.read_memory(address + self.gil_offsets[1], 8);
+    let bytes = match bytes {
+      Ok(bytes) => bytes,
+      Err(err) => {
+        // Start scanning for the game process again
+        self.start_scan();
+        return Err(err);
+      }
+    };
+    let str: String = hex::encode(bytes);
+    let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+
+    // Final offset
+    let bytes = self.read_memory(address + self.gil_offsets[2], 4);
+    let bytes = match bytes {
+      Ok(bytes) => bytes,
+      Err(err) => {
+        // Start scanning for the game process again
+        self.start_scan();
+        return Err(err);
+      }
+    };
+    let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
+    Ok(gil)
+  }
+
+  /// Read an array of bytes from game memory
+  fn read_memory(&self, address: usize, size: usize) -> Result<Vec<u8>, ScanError> {
+    let id = self.process_id.load(Ordering::Relaxed) as Pid;
+    let handle: Result<ProcessHandle,_> = id.try_into();
+    let handle = match handle {
+        Ok(handle) => handle,
+        Err(_) => return Err(ScanError::HandleConversionError)
+    };
+    let bytes = copy_address(address, size, &handle);
+    let mut bytes = match bytes {
+      Ok(bytes) => bytes,
+      Err(_) => return Err(ScanError::MemoryReadError)
+    };
+    bytes.reverse(); // Little endian to big
+    Ok(bytes)
   }
 
   // Get a win32 handle to a process by process ID

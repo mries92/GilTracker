@@ -1,5 +1,5 @@
 import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
-//import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/tauri'
 
 Chart.register(
     LinearScale,
@@ -34,6 +34,11 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('settings-button')?.addEventListener('mouseleave', function(this) {
         this.classList.toggle('md-inactive');
     });
+
+    setInterval(function(){
+        let p = invoke('get_gil')
+        console.log(p);
+    }, 5000);
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
