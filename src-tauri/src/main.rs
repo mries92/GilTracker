@@ -21,12 +21,15 @@ fn main() {
     }
   }
 
-  let scanner = game_scanner::Scanner::new();
+  let scanner;
   if background {
     println!("Started background?");
   } else {
     tauri::Builder::default()
-      .setup(|_| Ok(()))
+      .setup(|app| {
+        scanner = Scanner::new(app);
+        Ok(())
+      })
       .manage(scanner)
       .invoke_handler(tauri::generate_handler![get_gil, read_data_from_file])
       .run(tauri::generate_context!())
