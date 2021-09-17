@@ -15,6 +15,7 @@ use bindings::{
 
 use benfred_read_process_memory::{copy_address, Pid, ProcessHandle};
 use sysinfo::{ProcessExt, System, SystemExt};
+use serde::{Deserialize};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -51,6 +52,7 @@ impl serde::Serialize for ScanError {
 }
 
 /// Holds the results of a scan
+#[derive(Deserialize, Debug)]
 pub struct ScanResult {
   value: u32,
   timestamp: u64
