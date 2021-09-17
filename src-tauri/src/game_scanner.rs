@@ -1,7 +1,15 @@
-use std::{convert::TryInto, fs::File, io, mem::MaybeUninit, sync::{
+use std::{
+  convert::TryInto,
+  fs::File,
+  io,
+  mem::MaybeUninit,
+  sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
-  }, thread, time::{Duration, Instant}};
+  },
+  thread,
+  time::{Duration, Instant},
+};
 
 mod bindings {
   windows::include_bindings!();
@@ -10,12 +18,13 @@ mod bindings {
 use bindings::{
   Windows::Win32::Foundation::{BOOL, HANDLE, HINSTANCE},
   Windows::Win32::System::ProcessStatus::K32EnumProcessModules,
-  Windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
+  Windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
 };
 
 use benfred_read_process_memory::{copy_address, Pid, ProcessHandle};
+use serde::Deserialize;
 use sysinfo::{ProcessExt, System, SystemExt};
-use serde::{Deserialize};
+use tauri::async_runtime::handle;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -55,24 +64,23 @@ impl serde::Serialize for ScanError {
 #[derive(Deserialize, Debug)]
 pub struct ScanResult {
   value: u32,
-  timestamp: u64
+  timestamp: u64,
 }
-
 
 /// Game scanning struct. Implements methods for reading values from game memory.
-pub struct Scanner {
+pub struct Scanner<'a> {
   gil_offsets: [usize; 3],
   attached: Arc<AtomicBool>,
-  scan_in_progress: Arc<AtomicBool>, // Important to prevent starting multiple scan threads
   process_id: Arc<AtomicUsize>,      // Base process id
   base_address: Arc<AtomicUsize>,    // Base address
+  app: &'a tauri::App,               // Reference to the base application
 }
 
-impl Scanner {
-  pub fn new() -> Scanner {
+impl<'a> Scanner<'a> {
+  pub fn new(app: &tauri::App) -> Scanner {
     let scanner = Scanner {
+      app: app,
       attached: Arc::new(AtomicBool::new(false)),
-      scan_in_progress: Arc::new(AtomicBool::new(false)),
       process_id: Arc::new(AtomicUsize::new(1)),
       base_address: Arc::new(AtomicUsize::new(1)),
       gil_offsets: [0x01DD4358, 0x78, 0xC],
@@ -81,45 +89,52 @@ impl Scanner {
     return scanner;
   }
 
-  /// Start an asynchronous scan for the game process.
+  /**
+  Starts the asynchronous scanning thread.
+
+  ### Note
+  This thread loops infinitely. Once process is found, thread is halted
+  until process is closed, then scanning resumes.
+  */
   fn start_scan(&self) {
-    // Only start a scan if there is not already one in progress. Callers can be patient ;)
-    if !self.scan_in_progress.load(Ordering::Relaxed) {
-      self.scan_in_progress.store(true, Ordering::Relaxed);
-      self.attached.store(false, Ordering::Relaxed);
-      let base_address = self.base_address.clone();
-      let process_id = self.process_id.clone();
-      let attached = self.attached.clone();
-      let scan_in_progress = self.scan_in_progress.clone();
-      std::thread::spawn(move || {
-        let mut sys = System::new_all();
-        let mut found = false;
-        let process_scan_interval = Duration::from_secs(3);
-        // Main background scanning loop
-        while found == false {
-          let start = Instant::now();
-          sys.refresh_processes();
-          for (pid, process) in sys.processes() {
-            if process.name() == "ffxiv_dx11.exe" {
-              let handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
-              let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
-              println!("Found game process, exiting scanning thread.");
-              base_address.store(ba, Ordering::Relaxed);
-              process_id.store(*pid, Ordering::Relaxed);
-              attached.store(true, Ordering::Relaxed);
-              found = true;
-              break;
-            }
+    self.attached.store(false, Ordering::Relaxed);
+    let base_address = self.base_address.clone();
+    let process_id = self.process_id.clone();
+    let attached = self.attached.clone();
+    std::thread::spawn(move || {
+      let mut sys = System::new_all();
+      let process_scan_interval = Duration::from_secs(3);
+      let handle: HANDLE = 0;
+      loop {
+        // Enumerate processes and look for handle
+        let start = Instant::now();
+        sys.refresh_processes();
+        for (pid, process) in sys.processes() {
+          if process.name() == "ffxiv_dx11.exe" {
+            handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
+            let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
+            println!("Found game process, exiting scanning thread.");
+            base_address.store(ba, Ordering::Relaxed);
+            process_id.store(*pid, Ordering::Relaxed);
+            attached.store(true, Ordering::Relaxed);
+            break;
           }
+        }
+        if handle != 0 {
+          unsafe { 
+            WaitForSingleObject(handle, 1000);
+            self.app.emit_all("test").unwrap();
+            self.attached.store(false, Ordering::Relaxed);
+            handle = 0;
+          }
+        } else {
           let runtime = start.elapsed();
-          // If there is time left in the scheduler, sleep thread
           if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
             thread::sleep(remaining);
           }
         }
-        scan_in_progress.store(false, Ordering::Relaxed);
-      });
-    }
+      }
+    });
   }
 
   // Get the players current Gil

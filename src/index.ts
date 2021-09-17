@@ -83,7 +83,6 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 function get_gil() {
-    console.log("DEBUG: In get gil JS.");
     let p = invoke('get_gil');
     p.then((g) => {
         statusCircleElement.style.fill = "limegreen";
