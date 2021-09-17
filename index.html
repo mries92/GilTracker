@@ -31,6 +31,10 @@
                 <option>6 months</option>
                 <option>1 year</option>
             </select>
+            <select name="type-select" id="type-select">
+                <option>Normalized</option>
+                <option>Temporal</option>
+            </select>
             <div id="status-indicator-div">
                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" style="vertical-align: bottom;">
                     <circle id="status-circle" cx="5" cy="5" r="5" fill="red" />
@@ -38,7 +42,7 @@
                 <p style="margin-left: 5px;">Not Attached</p>
             </div>
         </div>
-        <span class="material-icons md-light md-inactive" id="settings-button" style="height: fit-content; cursor: pointer; user-select: none;">settings</span>
+        <span class="material-icons md-light md-inactive" id="settings-button" style="height: fit-content; cursor: pointer; user-select: none;">menu</span>
     </div>
     <div id="content">
         <canvas id="chart"></canvas>

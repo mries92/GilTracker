@@ -1,5 +1,6 @@
 import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
 import { invoke } from '@tauri-apps/api/tauri'
+import * as fs from 'fs'
 
 Chart.register(
     LinearScale,
@@ -10,6 +11,7 @@ Chart.register(
 );
 
 let chart: Chart;
+let data: number[] = [];
 //let currentGil = 20;
 //let chartIndex = 0;
 
@@ -45,9 +47,11 @@ window.addEventListener('DOMContentLoaded', () => {
                     dataset.data.push(g as number);
                 });
                 chart.update();
+                data.push(g as number);
+                fs.writeFileSync("data.json", JSON.stringify(g));
             }
         }).catch(() => {
-            console.log("Error reading gil from game.");
+            // Chomp
         });
     }, 2000/*60000 * 3*/);
 

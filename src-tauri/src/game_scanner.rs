@@ -1,14 +1,7 @@
-use std::{
-  convert::TryInto,
-  io,
-  mem::MaybeUninit,
-  sync::{
+use std::{convert::TryInto, fs::File, io, mem::MaybeUninit, sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
-  },
-  thread,
-  time::{Duration, Instant},
-};
+  }, thread, time::{Duration, Instant}};
 
 mod bindings {
   windows::include_bindings!();
@@ -56,6 +49,13 @@ impl serde::Serialize for ScanError {
     state.end()
   }
 }
+
+/// Holds the results of a scan
+pub struct ScanResult {
+  value: u32,
+  timestamp: u64
+}
+
 
 /// Game scanning struct. Implements methods for reading values from game memory.
 pub struct Scanner {

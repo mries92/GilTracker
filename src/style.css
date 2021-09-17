@@ -40,20 +40,6 @@ p {
     overflow: hidden;
 }
 
-#currency-select {
-    width: 100%;
-    background-color: var(--bg-color);
-    color: white;
-    border-color: var(--highlight-color);
-}
-
-#time-select {
-    width: 100%;
-    background-color: var(--bg-color);
-    color: white;
-    border-color: var(--highlight-color);
-}
-
 #settings-div {
     display: flex;
     flex-direction: row;
@@ -74,6 +60,13 @@ p {
     padding: .4em;
     transition: opacity .2s ease;
     visibility: hidden;
+}
+
+#settings-modal select {
+    width: 100%;
+    background-color: var(--bg-color);
+    color: white;
+    border-color: var(--highlight-color);
 }
 
 #settings-modal > :not(:last-child){
