@@ -1,4 +1,15 @@
-use std::{convert::TryInto, fs::File, io, mem::MaybeUninit, ptr::null, sync::{Arc, Mutex, atomic::{AtomicBool, AtomicUsize, Ordering}}, thread, time::{Duration, Instant}};
+// ----- Imports -----
+use std::{
+  convert::TryInto,
+  io,
+  mem::MaybeUninit,
+  sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Arc, Mutex,
+  },
+  thread,
+  time::{Duration, Instant},
+};
 
 mod bindings {
   windows::include_bindings!();
@@ -8,16 +19,19 @@ use bindings::{
   Windows::Win32::Foundation::{BOOL, HANDLE, HINSTANCE},
   Windows::Win32::System::ProcessStatus::K32EnumProcessModules,
   Windows::Win32::System::Threading::{
-    OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PROCESS_SYNCHRONIZE
+    OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE,
+    PROCESS_VM_READ,
   },
-  Windows::Win32::System::WindowsProgramming::{INFINITE}
+  Windows::Win32::System::WindowsProgramming::INFINITE,
 };
 
 use benfred_read_process_memory::{copy_address, Pid, ProcessHandle};
 use serde::Deserialize;
 use sysinfo::{ProcessExt, System, SystemExt};
-use tauri::{Manager};
+use tauri::Manager;
 use thiserror::Error;
+// ----- End Imports -----
+
 
 #[derive(Error, Debug)]
 pub enum ScanError {
@@ -63,9 +77,9 @@ pub struct ScanResult {
 pub struct Scanner {
   gil_offsets: [usize; 3],
   attached: Arc<AtomicBool>,
-  process_id: Arc<AtomicUsize>,   // Base process id
-  base_address: Arc<AtomicUsize>, // Base address
-  app: Arc<Mutex<tauri::AppHandle>>,          // Reference to the base application
+  process_id: Arc<AtomicUsize>,      // Base process id
+  base_address: Arc<AtomicUsize>,    // Base address
+  app: Arc<Mutex<tauri::AppHandle>>, // Reference to the base application
 }
 
 impl Scanner {
@@ -96,7 +110,7 @@ impl Scanner {
     let app = self.app.clone();
     std::thread::spawn(move || {
       let mut sys = System::new_all();
-      let process_scan_interval = Duration::from_secs(3);
+      let process_scan_interval = Duration::from_secs(2);
       let mut handle: HANDLE = HANDLE(0);
       loop {
         // Enumerate processes and look for handle
@@ -114,9 +128,12 @@ impl Scanner {
         }
         if !handle.is_null() {
           unsafe {
-            println!("Waiting for game process to close, {}", handle.0);
             WaitForSingleObject(handle, INFINITE);
-            app.lock().expect("App has to exist.").emit_all("test", {}).unwrap();
+            app
+              .lock()
+              .expect("App has to exist.")
+              .emit_all("test", {})
+              .unwrap();
             attached.store(false, Ordering::Relaxed);
             handle = HANDLE(0); // Drop the existing handle
           }

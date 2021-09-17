@@ -3,13 +3,13 @@
   windows_subsystem = "windows"
 )]
 
-mod game_scanner;
-mod file_manager;
 mod error;
+mod file_manager;
+mod game_scanner;
 
-use std::{env, sync::Arc};
+use file_manager::FileManager;
 use game_scanner::{ScanError, Scanner};
-use file_manager::{FileManager};
+use std::env;
 use tauri::Manager;
 
 fn main() {
