@@ -12,10 +12,23 @@ Chart.register(
 
 let chart: Chart;
 let data: number[] = [];
+let statusCircleElement: HTMLElement;
+let statusTextElement: HTMLElement;
+
+let STATUS_ATTACHED = "Attached";
+let STATUS_DISCONNETED = "Not Attached";
+
 //let currentGil = 20;
 //let chartIndex = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
+    // Get element caches
+    let el = document.getElementById("status-circle");
+    if(el) { statusCircleElement = el; }
+    el = document.getElementById("status-text");
+    if(el) { statusTextElement = el; }
+
+    // Handlers
     document.getElementById('settings-button')?.addEventListener('click', function() {
         let div = document.getElementById('settings-modal');
         if(div) {
@@ -37,9 +50,12 @@ window.addEventListener('DOMContentLoaded', () => {
         this.classList.toggle('md-inactive');
     });
 
+    // Background scan
     setInterval(function(){
         let p = invoke('get_gil');
         p.then((g) => {
+            statusCircleElement.style.fill = "limegreen";
+            statusTextElement.innerHTML = STATUS_ATTACHED;
             // Wallet value will read as 0 until player is fully logged in
             if(g != 0) {
                 chart.data.labels?.push(1);
@@ -51,6 +67,8 @@ window.addEventListener('DOMContentLoaded', () => {
                 fs.writeFileSync("data.json", JSON.stringify(g));
             }
         }).catch(() => {
+            statusCircleElement.style.fill = "red";
+            statusTextElement.innerHTML = STATUS_DISCONNETED;
             // Chomp
         });
     }, 2000/*60000 * 3*/);
