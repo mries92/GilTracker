@@ -1,15 +1,4 @@
-use std::{
-  convert::TryInto,
-  fs::File,
-  io,
-  mem::MaybeUninit,
-  sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc,
-  },
-  thread,
-  time::{Duration, Instant},
-};
+use std::{convert::TryInto, fs::File, io, mem::MaybeUninit, ptr::null, sync::{Arc, Mutex, atomic::{AtomicBool, AtomicUsize, Ordering}}, thread, time::{Duration, Instant}};
 
 mod bindings {
   windows::include_bindings!();
@@ -18,13 +7,16 @@ mod bindings {
 use bindings::{
   Windows::Win32::Foundation::{BOOL, HANDLE, HINSTANCE},
   Windows::Win32::System::ProcessStatus::K32EnumProcessModules,
-  Windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
+  Windows::Win32::System::Threading::{
+    OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PROCESS_SYNCHRONIZE
+  },
+  Windows::Win32::System::WindowsProgramming::{INFINITE}
 };
 
 use benfred_read_process_memory::{copy_address, Pid, ProcessHandle};
 use serde::Deserialize;
 use sysinfo::{ProcessExt, System, SystemExt};
-use tauri::async_runtime::handle;
+use tauri::{Manager};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -68,18 +60,18 @@ pub struct ScanResult {
 }
 
 /// Game scanning struct. Implements methods for reading values from game memory.
-pub struct Scanner<'a> {
+pub struct Scanner {
   gil_offsets: [usize; 3],
   attached: Arc<AtomicBool>,
-  process_id: Arc<AtomicUsize>,      // Base process id
-  base_address: Arc<AtomicUsize>,    // Base address
-  app: &'a tauri::App,               // Reference to the base application
+  process_id: Arc<AtomicUsize>,   // Base process id
+  base_address: Arc<AtomicUsize>, // Base address
+  app: Arc<Mutex<tauri::AppHandle>>,          // Reference to the base application
 }
 
-impl<'a> Scanner<'a> {
-  pub fn new(app: &tauri::App) -> Scanner {
+impl Scanner {
+  pub fn new(app: tauri::AppHandle) -> Scanner {
     let scanner = Scanner {
-      app: app,
+      app: Arc::new(Mutex::new(app)),
       attached: Arc::new(AtomicBool::new(false)),
       process_id: Arc::new(AtomicUsize::new(1)),
       base_address: Arc::new(AtomicUsize::new(1)),
@@ -101,10 +93,11 @@ impl<'a> Scanner<'a> {
     let base_address = self.base_address.clone();
     let process_id = self.process_id.clone();
     let attached = self.attached.clone();
+    let app = self.app.clone();
     std::thread::spawn(move || {
       let mut sys = System::new_all();
       let process_scan_interval = Duration::from_secs(3);
-      let handle: HANDLE = 0;
+      let mut handle: HANDLE = HANDLE(0);
       loop {
         // Enumerate processes and look for handle
         let start = Instant::now();
@@ -113,19 +106,19 @@ impl<'a> Scanner<'a> {
           if process.name() == "ffxiv_dx11.exe" {
             handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
             let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
-            println!("Found game process, exiting scanning thread.");
             base_address.store(ba, Ordering::Relaxed);
             process_id.store(*pid, Ordering::Relaxed);
             attached.store(true, Ordering::Relaxed);
             break;
           }
         }
-        if handle != 0 {
-          unsafe { 
-            WaitForSingleObject(handle, 1000);
-            self.app.emit_all("test").unwrap();
-            self.attached.store(false, Ordering::Relaxed);
-            handle = 0;
+        if !handle.is_null() {
+          unsafe {
+            println!("Waiting for game process to close, {}", handle.0);
+            WaitForSingleObject(handle, INFINITE);
+            app.lock().expect("App has to exist.").emit_all("test", {}).unwrap();
+            attached.store(false, Ordering::Relaxed);
+            handle = HANDLE(0); // Drop the existing handle
           }
         } else {
           let runtime = start.elapsed();
@@ -208,7 +201,7 @@ impl<'a> Scanner<'a> {
     let handle: HANDLE;
     unsafe {
       handle = OpenProcess(
-        PROCESS_VM_READ | PROCESS_QUERY_INFORMATION,
+        PROCESS_VM_READ | PROCESS_QUERY_INFORMATION | PROCESS_SYNCHRONIZE,
         BOOL::from(false),
         pid,
       );

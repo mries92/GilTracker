@@ -4,5 +4,6 @@ fn main() {
     Windows::Win32::System::ProcessStatus::{K32EnumProcessModules},
     Windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject},
     Windows::Win32::Foundation::{BOOL, HINSTANCE, HANDLE},
+    Windows::Win32::System::WindowsProgramming::{INFINITE}
   };
 }

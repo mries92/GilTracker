@@ -7,9 +7,10 @@ mod game_scanner;
 mod file_manager;
 mod error;
 
-use std::env;
+use std::{env, sync::Arc};
 use game_scanner::{ScanError, Scanner};
 use file_manager::{FileManager};
+use tauri::Manager;
 
 fn main() {
   let args: Vec<String> = env::args().collect();
@@ -21,16 +22,15 @@ fn main() {
     }
   }
 
-  let scanner;
   if background {
     println!("Started background?");
   } else {
     tauri::Builder::default()
       .setup(|app| {
-        scanner = Scanner::new(app);
+        let scanner = Scanner::new(app.handle());
+        app.manage(scanner);
         Ok(())
       })
-      .manage(scanner)
       .invoke_handler(tauri::generate_handler![get_gil, read_data_from_file])
       .run(tauri::generate_context!())
       .expect("error while running tauri application");
