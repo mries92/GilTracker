@@ -1,6 +1,5 @@
 import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
 import { invoke } from '@tauri-apps/api/tauri'
-import * as fs from 'fs'
 
 Chart.register(
     LinearScale,
@@ -12,14 +11,14 @@ Chart.register(
 
 let chart: Chart;
 let data: number[] = [];
+
+// Handles / caches
 let statusCircleElement: HTMLElement;
 let statusTextElement: HTMLElement;
-
-let STATUS_ATTACHED = "Attached";
-let STATUS_DISCONNETED = "Not Attached";
-
-//let currentGil = 20;
-//let chartIndex = 0;
+let scanIntervalId = 0;
+// Consts
+const STATUS_ATTACHED = "Attached";
+const STATUS_DISCONNETED = "Not Attached";
 
 window.addEventListener('DOMContentLoaded', () => {
     // Get element caches
@@ -49,29 +48,10 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('settings-button')?.addEventListener('mouseleave', function(this) {
         this.classList.toggle('md-inactive');
     });
-
-    // Background scan
-    setInterval(function(){
-        let p = invoke('get_gil');
-        p.then((g) => {
-            statusCircleElement.style.fill = "limegreen";
-            statusTextElement.innerHTML = STATUS_ATTACHED;
-            // Wallet value will read as 0 until player is fully logged in
-            if(g != 0) {
-                chart.data.labels?.push(1);
-                chart.data.datasets.forEach((dataset) => {
-                    dataset.data.push(g as number);
-                });
-                chart.update();
-                data.push(g as number);
-                fs.writeFileSync("data.json", JSON.stringify(g));
-            }
-        }).catch(() => {
-            statusCircleElement.style.fill = "red";
-            statusTextElement.innerHTML = STATUS_DISCONNETED;
-            // Chomp
-        });
-    }, 2000/*60000 * 3*/);
+    document.getElementById('scan-frequency-select')?.addEventListener('change', function(this: HTMLSelectElement) {
+        window.clearInterval(scanIntervalId);
+        window.setInterval(get_gil, this.options[this.selectedIndex].value as unknown as number);
+    });
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
     if(ctx) {
@@ -97,4 +77,29 @@ window.addEventListener('DOMContentLoaded', () => {
             },
         });
     }
+
+    // Kick off an initial scan when booting up
+    get_gil();
 })
+
+function get_gil() {
+    console.log("DEBUG: In get gil JS.");
+    let p = invoke('get_gil');
+    p.then((g) => {
+        statusCircleElement.style.fill = "limegreen";
+        statusTextElement.innerHTML = STATUS_ATTACHED;
+        // Wallet value will read as 0 until player is fully logged in
+        if(g != 0) {
+            chart.data.labels?.push(1);
+            chart.data.datasets.forEach((dataset) => {
+                dataset.data.push(g as number);
+            });
+            chart.update();
+            data.push(g as number);
+        }
+    }).catch((err) => {
+        statusCircleElement.style.fill = "red";
+        statusTextElement.innerHTML = STATUS_DISCONNETED;
+        console.log(err);
+    });
+}

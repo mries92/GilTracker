@@ -14,7 +14,7 @@
     <div id="settings-div">
         <div id="settings-modal" class="animate-fade">
             <select name="currency-select" id="currency-select">
-                <option>Gil</option>
+                <option selected>Gil</option>
                 <option>Ventures</option>
                 <option>Company Seals</option>
                 <option>MGP</option>
@@ -22,17 +22,26 @@
                 <option>Scrips</option>
                 <option>Wolf Marks</option>
             </select>
-            <select name="time-select" id="time-select">
+            <select name="time-range-select" id="time-range-select">
                 <option>24 hours</option>
                 <option>3 days</option>
-                <option>1 week</option>
+                <option selected>1 week</option>
                 <option>1 month</option>
                 <option>3 months</option>
                 <option>6 months</option>
                 <option>1 year</option>
+                <option>Custom</option>
+            </select>
+            <select name="scan-frequency-select" id="scan-frequency-select">
+                <option value="60000">1m</option>
+                <option value="300000" >5m</option>
+                <option selected value="900000">15m</option>
+                <option value="1800000">30m</option>
+                <option value="3600000">1h</option>
+                <option>Custom</option>
             </select>
             <select name="type-select" id="type-select">
-                <option>Normalized</option>
+                <option selected>Normalized</option>
                 <option>Temporal</option>
             </select>
             <div id="status-indicator-div">
