@@ -1,10 +1,10 @@
 [package]
-name = "app"
+name = "gil-tracker"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Ffxiv data visualization."
+authors = ["Mike Ries"]
+license = "MIT"
+repository = "https://github.com/mries92/GilTracker/"
 default-run = "app"
 edition = "2018"
 build = "src/build.rs"
