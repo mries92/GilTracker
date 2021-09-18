@@ -1,15 +1,8 @@
 // ----- Imports -----
-use std::{
-  convert::TryInto,
-  io,
-  mem::MaybeUninit,
-  sync::{
+use std::{convert::TryInto, io, mem::MaybeUninit, string, sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
-  },
-  thread,
-  time::{Duration, Instant},
-};
+  }, thread, time::{Duration, Instant}};
 
 mod bindings {
   windows::include_bindings!();
@@ -82,6 +75,24 @@ pub struct Scanner {
   app: Arc<Mutex<tauri::AppHandle>>, // Reference to the base application
 }
 
+#[derive(Clone)]
+pub struct ScanEvent {
+  code: String,
+  description: String
+}
+
+impl serde::Serialize for ScanEvent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+          use serde::ser::SerializeStruct;
+          let mut state = serializer.serialize_struct("ScanEvent", 2)?;
+          state.serialize_field("code", &self.code)?;
+          state.serialize_field("description", &self.description)?;
+          state.end()
+    }
+}
+
 impl Scanner {
   pub fn new(app: tauri::AppHandle) -> Scanner {
     let scanner = Scanner {
@@ -123,6 +134,11 @@ impl Scanner {
             base_address.store(ba, Ordering::Relaxed);
             process_id.store(*pid, Ordering::Relaxed);
             attached.store(true, Ordering::Relaxed);
+            app
+              .lock()
+              .expect("App has to exist.")
+              .emit_all("ScanEvent", ScanEvent{ code: "Connected".to_string(), description: "Game client found.".to_string() })
+              .unwrap();
             break;
           }
         }
@@ -132,7 +148,7 @@ impl Scanner {
             app
               .lock()
               .expect("App has to exist.")
-              .emit_all("test", {})
+              .emit_all("ScanEvent", ScanEvent{ code: "Disconnected".to_string(), description: "Game client lost.".to_string() })
               .unwrap();
             attached.store(false, Ordering::Relaxed);
             handle = HANDLE(0); // Drop the existing handle

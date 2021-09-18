@@ -1,5 +1,7 @@
 import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
 import { invoke } from '@tauri-apps/api/tauri'
+import { emit, Event, EventCallback, listen } from '@tauri-apps/api/event'
+import { event } from '@tauri-apps/api';
 
 Chart.register(
     LinearScale,
@@ -12,6 +14,11 @@ Chart.register(
 let chart: Chart;
 let data: number[] = [];
 
+class ScanEvent {
+    code = "";
+    description = "";
+}
+
 // Handles / caches
 let statusCircleElement: HTMLElement;
 let statusTextElement: HTMLElement;
@@ -20,7 +27,7 @@ let scanIntervalId = 0;
 const STATUS_ATTACHED = "Attached";
 const STATUS_DISCONNETED = "Not Attached";
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     // Get element caches
     let el = document.getElementById("status-circle");
     if(el) { statusCircleElement = el; }
@@ -51,6 +58,12 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('scan-frequency-select')?.addEventListener('change', function(this: HTMLSelectElement) {
         window.clearInterval(scanIntervalId);
         window.setInterval(get_gil, this.options[this.selectedIndex].value as unknown as number);
+    });
+
+    // Backend events
+    await listen("ScanEvent", event => {
+        let payload: ScanEvent = event.payload as ScanEvent;
+        console.log(payload.description);
     });
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
