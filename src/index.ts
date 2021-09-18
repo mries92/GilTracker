@@ -64,6 +64,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     await listen("ScanEvent", event => {
         let payload: ScanEvent = event.payload as ScanEvent;
         console.log(payload.description);
+        if(payload.code == "GameConnected") {
+            // start scanning
+            scanIntervalId = window.setInterval(function() {
+                invoke('get_gil').then(function(value){
+                    console.log(value);
+                }).catch(function(err){
+                    // Scan failed for some reason, gobble it
+                });
+            }, 1000);
+        } else {
+            window.clearInterval(scanIntervalId);
+            // stop scanning
+        }
     });
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');

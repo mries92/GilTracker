@@ -121,12 +121,12 @@ impl Scanner {
     let app = self.app.clone();
     std::thread::spawn(move || {
       let mut sys = System::new_all();
-      let process_scan_interval = Duration::from_secs(2);
+      let process_scan_interval = Duration::from_secs(5);
       let mut handle: HANDLE = HANDLE(0);
       loop {
         // Enumerate processes and look for handle
         let start = Instant::now();
-        sys.refresh_processes();
+        sys.refresh_all();
         for (pid, process) in sys.processes() {
           if process.name() == "ffxiv_dx11.exe" {
             handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
@@ -137,7 +137,7 @@ impl Scanner {
             app
               .lock()
               .expect("App has to exist.")
-              .emit_all("ScanEvent", ScanEvent{ code: "Connected".to_string(), description: "Game client found.".to_string() })
+              .emit_all("ScanEvent", ScanEvent{ code: "GameConnected".to_string(), description: "Game client found.".to_string() })
               .unwrap();
             break;
           }
@@ -148,17 +148,18 @@ impl Scanner {
             app
               .lock()
               .expect("App has to exist.")
-              .emit_all("ScanEvent", ScanEvent{ code: "Disconnected".to_string(), description: "Game client lost.".to_string() })
+              .emit_all("ScanEvent", ScanEvent{ code: "GameDisconnected".to_string(), description: "Game client lost.".to_string() })
               .unwrap();
             attached.store(false, Ordering::Relaxed);
             handle = HANDLE(0); // Drop the existing handle
-          }
-        } else {
-          let runtime = start.elapsed();
-          if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
-            thread::sleep(remaining);
+            sys.refresh_all(); // Gotta do the refresh here unfortunately to keep it thread safe
           }
         }
+        let runtime = start.elapsed();
+        if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
+          thread::sleep(remaining);
+        }
+        println!("--------------------------------------------------------------------");
       }
     });
   }
@@ -175,8 +176,6 @@ impl Scanner {
     let bytes = match bytes {
       Ok(bytes) => bytes,
       Err(err) => {
-        // Start scanning for the game process again
-        self.start_scan();
         return Err(err);
       }
     };
@@ -190,8 +189,6 @@ impl Scanner {
     let bytes = match bytes {
       Ok(bytes) => bytes,
       Err(err) => {
-        // Start scanning for the game process again
-        self.start_scan();
         return Err(err);
       }
     };
@@ -203,8 +200,6 @@ impl Scanner {
     let bytes = match bytes {
       Ok(bytes) => bytes,
       Err(err) => {
-        // Start scanning for the game process again
-        self.start_scan();
         return Err(err);
       }
     };
