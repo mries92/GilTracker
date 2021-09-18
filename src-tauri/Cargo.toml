@@ -5,7 +5,7 @@ description = "Ffxiv data visualization."
 authors = ["Mike Ries"]
 license = "MIT"
 repository = "https://github.com/mries92/GilTracker/"
-default-run = "app"
+default-run = "gil-tracker"
 edition = "2018"
 build = "src/build.rs"
 

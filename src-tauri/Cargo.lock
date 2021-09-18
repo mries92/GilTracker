@@ -30,21 +30,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
-name = "app"
-version = "0.1.0"
-dependencies = [
- "benfred-read-process-memory",
- "hex",
- "serde",
- "serde_json",
- "sysinfo",
- "tauri",
- "tauri-build",
- "thiserror",
- "windows",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1066,6 +1051,21 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "wasi 0.10.2+wasi-snapshot-preview1",
+]
+
+[[package]]
+name = "gil-tracker"
+version = "0.1.0"
+dependencies = [
+ "benfred-read-process-memory",
+ "hex",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "thiserror",
+ "windows",
 ]
 
 [[package]]

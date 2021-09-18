@@ -90,9 +90,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             },
         });
     }
-
-    // Kick off an initial scan when booting up
-    get_gil();
 })
 
 function get_gil() {
