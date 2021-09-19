@@ -7,7 +7,8 @@ mod error;
 mod file_manager;
 mod game_scanner;
 
-use game_scanner::{ScanError, Scanner};
+use file_manager::FileManager;
+use game_scanner::{ScanError, ScanResult, Scanner};
 use std::env;
 use tauri::Manager;
 
@@ -30,7 +31,7 @@ fn main() {
         app.manage(scanner);
         Ok(())
       })
-      .invoke_handler(tauri::generate_handler![get_gil, is_attached])
+      .invoke_handler(tauri::generate_handler![get_gil, is_attached, load_from_disk])
       .run(tauri::generate_context!())
       .expect("error while running tauri application");
   }
@@ -51,4 +52,10 @@ fn is_attached(scanner: tauri::State<Scanner>) -> bool {
 #[tauri::command]
 fn get_gil(scanner: tauri::State<Scanner>) -> Result<u32, ScanError> {
   scanner.get_gil()
+}
+
+#[tauri::command]
+fn load_from_disk() -> Vec<ScanResult> {
+  let data = FileManager::read_data_from_disk();
+  return data;
 }
