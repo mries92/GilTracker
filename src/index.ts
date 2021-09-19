@@ -60,26 +60,32 @@ window.addEventListener('DOMContentLoaded', async () => {
         window.setInterval(get_gil, this.options[this.selectedIndex].value as unknown as number);
     });
 
+    // Initial attach check
+    invoke('is_attached').then(function(val) {
+        if(val) {
+            statusCircleElement.style.fill = "limegreen";
+            statusTextElement.innerHTML = STATUS_ATTACHED;
+        }
+    });
+
     // Backend events
     await listen("ScanEvent", event => {
         let payload: ScanEvent = event.payload as ScanEvent;
         console.log(payload.description);
         if(payload.code == "GameConnected") {
-            // start scanning
+            // Start scanning
             scanIntervalId = window.setInterval(function() {
                 invoke('get_gil').then(function(value){
                     console.log(value);
-                }).catch(function(err){
-                    // Scan failed for some reason, gobble it
-                });
-            }, 1000);
+                }).catch(function(_){ /* Scan failed for some reason, gobble it */ });
+            }, 60000 * 3);
             statusCircleElement.style.fill = "limegreen";
             statusTextElement.innerHTML = STATUS_ATTACHED;
         } else {
+            // Stop scanning
             window.clearInterval(scanIntervalId);
             statusCircleElement.style.fill = "red";
             statusTextElement.innerHTML = STATUS_DISCONNETED;
-            // stop scanning
         }
     });
 

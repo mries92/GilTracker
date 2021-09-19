@@ -7,7 +7,6 @@ mod error;
 mod file_manager;
 mod game_scanner;
 
-use file_manager::FileManager;
 use game_scanner::{ScanError, Scanner};
 use std::env;
 use tauri::Manager;
@@ -31,19 +30,25 @@ fn main() {
         app.manage(scanner);
         Ok(())
       })
-      .invoke_handler(tauri::generate_handler![get_gil, read_data_from_file])
+      .invoke_handler(tauri::generate_handler![get_gil, is_attached])
       .run(tauri::generate_context!())
       .expect("error while running tauri application");
   }
 }
 
+/**
+Get a boolean indicating whether the game is attached or not.
+
+Used one time on initial DOM load to get backend status.
+
+Events used afterwards.
+*/
+#[tauri::command]
+fn is_attached(scanner: tauri::State<Scanner>) -> bool {
+  return scanner.attached();
+}
+
 #[tauri::command]
 fn get_gil(scanner: tauri::State<Scanner>) -> Result<u32, ScanError> {
   scanner.get_gil()
-}
-
-/// Read the existing data we have already captured
-#[tauri::command]
-fn read_data_from_file() {
-  FileManager::read_data_from_disk();
 }

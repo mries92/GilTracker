@@ -27,10 +27,12 @@ use bindings::{
 };
 
 use benfred_read_process_memory::{copy_address, Pid, ProcessHandle};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessExt, System, SystemExt};
 use tauri::Manager;
 use thiserror::Error;
+
+use crate::file_manager::{self, FileManager};
 // ----- End Imports -----
 
 #[derive(Error, Debug)]
@@ -67,7 +69,7 @@ impl serde::Serialize for ScanError {
 }
 
 /// Holds the results of a scan
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ScanResult {
   value: u32,
   timestamp: u64,
@@ -108,10 +110,15 @@ impl Scanner {
       attached: Arc::new(AtomicBool::new(false)),
       process_id: Arc::new(AtomicUsize::new(1)),
       base_address: Arc::new(AtomicUsize::new(1)),
-      gil_offsets: [0x01DD4358, 0x78, 0xC],
+      gil_offsets: [0x01DD4358, 0x78, 0xC]
     };
     scanner.start_scan();
     return scanner;
+  }
+
+  /// Used to get attached status. Used once from front end when DOM load is complete.
+  pub fn attached(&self) -> bool {
+    return self.attached.load(Ordering::Relaxed);
   }
 
   /**
@@ -137,6 +144,7 @@ impl Scanner {
         sys.refresh_all();
         for (pid, process) in sys.processes() {
           if process.name() == "ffxiv_dx11.exe" {
+            println!("GAME FOUND");
             handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
             let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
             base_address.store(ba, Ordering::Relaxed);
@@ -223,6 +231,7 @@ impl Scanner {
       }
     };
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
+    FileManager::write_data_to_disk(vec![ScanResult { value: gil, timestamp: 1 }]);
     Ok(gil)
   }
 
