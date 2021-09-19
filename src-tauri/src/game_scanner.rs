@@ -1,15 +1,8 @@
 // ----- Imports -----
-use std::{
-  convert::TryInto,
-  io,
-  mem::MaybeUninit,
-  sync::{
+use std::{convert::TryInto, io, mem::MaybeUninit, sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
-  },
-  thread,
-  time::{Duration, Instant},
-};
+  }, thread, time::{Duration, Instant, SystemTime, UNIX_EPOCH}};
 
 mod bindings {
   windows::include_bindings!();
@@ -229,7 +222,7 @@ impl Scanner {
       }
     };
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-    let r = ScanResult { value: gil, timestamp: 1 };
+    let r = ScanResult { value: gil, timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("Impossible").as_millis() as u64};
     FileManager::write_data_to_disk(r);
     Ok(gil)
   }
