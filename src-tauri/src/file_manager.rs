@@ -1,4 +1,4 @@
-use std::{fs::{self, File}, io::Write};
+use std::fs;
 
 use crate::game_scanner::ScanResult;
 

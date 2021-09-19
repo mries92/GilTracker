@@ -187,41 +187,23 @@ impl Scanner {
     if !self.attached.load(Ordering::Relaxed) {
       return Err(ScanError::NotAttached);
     }
-    // Error handling must be done for each read. The game process could have closed in between calls.
     // Static pointer
     let base = self.base_address.as_ref();
-    let bytes = self.read_memory(base.load(Ordering::Relaxed) + self.gil_offsets[0], 8);
-    let bytes = match bytes {
-      Ok(bytes) => bytes,
-      Err(err) => {
-        return Err(err);
-      }
-    };
+
     // Parse the bytes into a hex string
+    let bytes = self.read_memory(base.load(Ordering::Relaxed) + self.gil_offsets[0], 8)?;
     let str: String = hex::encode(bytes);
-    // If at this point, this should succeed. Still, // TODO add handling with custom error type
     let address = usize::from_str_radix(&str, 16).unwrap();
 
     // First offset
-    let bytes = self.read_memory(address + self.gil_offsets[1], 8);
-    let bytes = match bytes {
-      Ok(bytes) => bytes,
-      Err(err) => {
-        return Err(err);
-      }
-    };
+    let bytes = self.read_memory(address + self.gil_offsets[1], 8)?;
     let str: String = hex::encode(bytes);
     let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
 
     // Final offset
-    let bytes = self.read_memory(address + self.gil_offsets[2], 4);
-    let bytes = match bytes {
-      Ok(bytes) => bytes,
-      Err(err) => {
-        return Err(err);
-      }
-    };
+    let bytes = self.read_memory(address + self.gil_offsets[2], 4)?;
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
+
     let r = ScanResult { value: gil, timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("Impossible").as_millis() as u64};
     if r.value != 0 {
       FileManager::write_data_to_disk(r);
