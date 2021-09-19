@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::{fs::{self, File}, io::Write};
 
 use crate::game_scanner::ScanResult;
 
@@ -19,7 +19,7 @@ impl FileManager {
       Ok(string) => string,
       Err(_) => {
         // File couldn't be read, create it and return empty string
-        File::create("data.json").expect("Impossibru");
+        fs::write("data.json", "[]").expect("");
         return vec![];
       }
     };

@@ -223,7 +223,9 @@ impl Scanner {
     };
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
     let r = ScanResult { value: gil, timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("Impossible").as_millis() as u64};
-    FileManager::write_data_to_disk(r);
+    if r.value != 0 {
+      FileManager::write_data_to_disk(r);
+    }
     Ok(gil)
   }
 

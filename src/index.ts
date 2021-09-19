@@ -26,7 +26,9 @@ class ScanEvent {
 // Handles / caches
 let statusCircleElement: HTMLElement;
 let statusTextElement: HTMLElement;
+let selectIntervalElement: HTMLSelectElement;
 let scanIntervalId = 0;
+let index = 1;
 // Consts
 const STATUS_ATTACHED = "Attached";
 const STATUS_DISCONNETED = "Not Attached";
@@ -37,6 +39,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (el) { statusCircleElement = el; }
     el = document.getElementById("status-text");
     if (el) { statusTextElement = el; }
+    el = document.getElementById("scan-frequency-select");
+    if (el) { selectIntervalElement = el as HTMLSelectElement; }
 
     // Handlers
     document.getElementById('settings-button')?.addEventListener('click', function () {
@@ -59,7 +63,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('settings-button')?.addEventListener('mouseleave', function (this) {
         this.classList.toggle('md-inactive');
     });
-    document.getElementById('scan-frequency-select')?.addEventListener('change', function (this: HTMLSelectElement) {
+    selectIntervalElement.addEventListener('change', function (this) {
         window.clearInterval(scanIntervalId);
         window.setInterval(get_gil, this.options[this.selectedIndex].value as unknown as number);
     });
@@ -111,10 +115,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     invoke('load_from_disk').then(function(val) {
         let a = val as Array<ScanResult>;
         a.forEach(result => {
-            chart.data.labels?.push(result.timestamp);
+            chart.data.labels?.push(index);
             chart.data.datasets.forEach((dataset) => {
                 dataset.data.push(result.value);
             });
+            index++;
             chart.update();
         });
     });
@@ -145,7 +150,7 @@ function set_attached(attached: boolean) {
             invoke('get_gil').then(function (value) {
                 console.log(value);
             }).catch(function (_) { /* Scan failed for some reason, gobble it */ });
-        }, 5000);
+        }, +selectIntervalElement.options[selectIntervalElement.selectedIndex].value);
     } else {
         statusCircleElement.style.fill = "red";
         statusTextElement.innerHTML = STATUS_DISCONNETED;
