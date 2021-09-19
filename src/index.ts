@@ -73,8 +73,12 @@ window.addEventListener('DOMContentLoaded', async () => {
                     // Scan failed for some reason, gobble it
                 });
             }, 1000);
+            statusCircleElement.style.fill = "limegreen";
+            statusTextElement.innerHTML = STATUS_ATTACHED;
         } else {
             window.clearInterval(scanIntervalId);
+            statusCircleElement.style.fill = "red";
+            statusTextElement.innerHTML = STATUS_DISCONNETED;
             // stop scanning
         }
     });

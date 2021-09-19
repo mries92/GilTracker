@@ -1,8 +1,16 @@
 // ----- Imports -----
-use std::{convert::TryInto, io, mem::MaybeUninit, string, sync::{
+use std::{
+  convert::TryInto,
+  io,
+  mem::MaybeUninit,
+  string,
+  sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
-  }, thread, time::{Duration, Instant}};
+  },
+  thread,
+  time::{Duration, Instant},
+};
 
 mod bindings {
   windows::include_bindings!();
@@ -24,7 +32,6 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use tauri::Manager;
 use thiserror::Error;
 // ----- End Imports -----
-
 
 #[derive(Error, Debug)]
 pub enum ScanError {
@@ -78,19 +85,20 @@ pub struct Scanner {
 #[derive(Clone)]
 pub struct ScanEvent {
   code: String,
-  description: String
+  description: String,
 }
 
 impl serde::Serialize for ScanEvent {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer {
-          use serde::ser::SerializeStruct;
-          let mut state = serializer.serialize_struct("ScanEvent", 2)?;
-          state.serialize_field("code", &self.code)?;
-          state.serialize_field("description", &self.description)?;
-          state.end()
-    }
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    use serde::ser::SerializeStruct;
+    let mut state = serializer.serialize_struct("ScanEvent", 2)?;
+    state.serialize_field("code", &self.code)?;
+    state.serialize_field("description", &self.description)?;
+    state.end()
+  }
 }
 
 impl Scanner {
@@ -137,7 +145,13 @@ impl Scanner {
             app
               .lock()
               .expect("App has to exist.")
-              .emit_all("ScanEvent", ScanEvent{ code: "GameConnected".to_string(), description: "Game client found.".to_string() })
+              .emit_all(
+                "ScanEvent",
+                ScanEvent {
+                  code: "GameConnected".to_string(),
+                  description: "Game client found.".to_string(),
+                },
+              )
               .unwrap();
             break;
           }
@@ -148,7 +162,13 @@ impl Scanner {
             app
               .lock()
               .expect("App has to exist.")
-              .emit_all("ScanEvent", ScanEvent{ code: "GameDisconnected".to_string(), description: "Game client lost.".to_string() })
+              .emit_all(
+                "ScanEvent",
+                ScanEvent {
+                  code: "GameDisconnected".to_string(),
+                  description: "Game client lost.".to_string(),
+                },
+              )
               .unwrap();
             attached.store(false, Ordering::Relaxed);
             handle = HANDLE(0); // Drop the existing handle
@@ -159,7 +179,6 @@ impl Scanner {
         if let Some(remaining) = process_scan_interval.checked_sub(runtime) {
           thread::sleep(remaining);
         }
-        println!("--------------------------------------------------------------------");
       }
     });
   }
