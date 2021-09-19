@@ -1,8 +1,15 @@
 // ----- Imports -----
-use std::{convert::TryInto, io, mem::MaybeUninit, sync::{
+use std::{
+  convert::TryInto,
+  io,
+  mem::MaybeUninit,
+  sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
-  }, thread, time::{Duration, Instant, SystemTime, UNIX_EPOCH}};
+  },
+  thread,
+  time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
 
 mod bindings {
   windows::include_bindings!();
@@ -24,7 +31,7 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use tauri::Manager;
 use thiserror::Error;
 
-use crate::file_manager::{FileManager};
+use crate::file_manager::FileManager;
 // ----- End Imports -----
 
 #[derive(Error, Debug)]
@@ -102,7 +109,7 @@ impl Scanner {
       attached: Arc::new(AtomicBool::new(false)),
       process_id: Arc::new(AtomicUsize::new(1)),
       base_address: Arc::new(AtomicUsize::new(1)),
-      gil_offsets: [0x01DD4358, 0x78, 0xC]
+      gil_offsets: [0x01DD4358, 0x78, 0xC],
     };
     scanner.start_scan();
     return scanner;
@@ -204,7 +211,13 @@ impl Scanner {
     let bytes = self.read_memory(address + self.gil_offsets[2], 4)?;
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
 
-    let r = ScanResult { value: gil, timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("Impossible").as_millis() as u64};
+    let r = ScanResult {
+      value: gil,
+      timestamp: SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Impossible")
+        .as_millis() as u64,
+    };
     if r.value != 0 {
       FileManager::write_data_to_disk(r);
     }
