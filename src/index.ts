@@ -30,67 +30,54 @@ const STATUS_DISCONNETED = "Not Attached";
 window.addEventListener('DOMContentLoaded', async () => {
     // Get element caches
     let el = document.getElementById("status-circle");
-    if(el) { statusCircleElement = el; }
+    if (el) { statusCircleElement = el; }
     el = document.getElementById("status-text");
-    if(el) { statusTextElement = el; }
+    if (el) { statusTextElement = el; }
 
     // Handlers
-    document.getElementById('settings-button')?.addEventListener('click', function() {
+    document.getElementById('settings-button')?.addEventListener('click', function () {
         let div = document.getElementById('settings-modal');
-        if(div) {
-            if(div.classList.contains("animate-fade")) {
+        if (div) {
+            if (div.classList.contains("animate-fade")) {
                 div.style.visibility = "visible";
                 div.classList.remove("animate-fade");
             } else {
                 div.classList.add("animate-fade");
-                setTimeout( () => {
+                setTimeout(() => {
                     div!.style.visibility = "hidden";
                 }, 200);
             }
         }
     });
-    document.getElementById('settings-button')?.addEventListener('mouseenter', function(this) {
+    document.getElementById('settings-button')?.addEventListener('mouseenter', function (this) {
         this.classList.toggle('md-inactive');
     });
-    document.getElementById('settings-button')?.addEventListener('mouseleave', function(this) {
+    document.getElementById('settings-button')?.addEventListener('mouseleave', function (this) {
         this.classList.toggle('md-inactive');
     });
-    document.getElementById('scan-frequency-select')?.addEventListener('change', function(this: HTMLSelectElement) {
+    document.getElementById('scan-frequency-select')?.addEventListener('change', function (this: HTMLSelectElement) {
         window.clearInterval(scanIntervalId);
         window.setInterval(get_gil, this.options[this.selectedIndex].value as unknown as number);
     });
 
     // Initial attach check
-    invoke('is_attached').then(function(val) {
-        if(val) {
-            statusCircleElement.style.fill = "limegreen";
-            statusTextElement.innerHTML = STATUS_ATTACHED;
-        }
+    invoke('is_attached').then(function (val) {
+        if (val)
+            set_attached(true);
     });
 
-    // Backend events
+    // Backend event listeners
     await listen("ScanEvent", event => {
         let payload: ScanEvent = event.payload as ScanEvent;
         console.log(payload.description);
-        if(payload.code == "GameConnected") {
-            // Start scanning
-            scanIntervalId = window.setInterval(function() {
-                invoke('get_gil').then(function(value){
-                    console.log(value);
-                }).catch(function(_){ /* Scan failed for some reason, gobble it */ });
-            }, 60000 * 3);
-            statusCircleElement.style.fill = "limegreen";
-            statusTextElement.innerHTML = STATUS_ATTACHED;
-        } else {
-            // Stop scanning
-            window.clearInterval(scanIntervalId);
-            statusCircleElement.style.fill = "red";
-            statusTextElement.innerHTML = STATUS_DISCONNETED;
-        }
+        if (payload.code == "GameConnected")
+            set_attached(true);
+        else
+            set_attached(false);
     });
 
     var ctx = (<HTMLCanvasElement>document.getElementById('chart')).getContext('2d');
-    if(ctx) {
+    if (ctx) {
         chart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -121,7 +108,7 @@ function get_gil() {
         statusCircleElement.style.fill = "limegreen";
         statusTextElement.innerHTML = STATUS_ATTACHED;
         // Wallet value will read as 0 until player is fully logged in
-        if(g != 0) {
+        if (g != 0) {
             chart.data.labels?.push(1);
             chart.data.datasets.forEach((dataset) => {
                 dataset.data.push(g as number);
@@ -134,4 +121,21 @@ function get_gil() {
         statusTextElement.innerHTML = STATUS_DISCONNETED;
         console.log(err);
     });
+}
+
+// Control behavior based on whether the game is attached
+function set_attached(attached: boolean) {
+    if(attached) {
+        statusCircleElement.style.fill = "limegreen";
+        statusTextElement.innerHTML = STATUS_ATTACHED;
+        scanIntervalId = window.setInterval(function () {
+            invoke('get_gil').then(function (value) {
+                console.log(value);
+            }).catch(function (_) { /* Scan failed for some reason, gobble it */ });
+        }, 5000);
+    } else {
+        statusCircleElement.style.fill = "red";
+        statusTextElement.innerHTML = STATUS_DISCONNETED;
+        window.clearInterval(scanIntervalId);
+    }
 }

@@ -3,7 +3,6 @@ use std::{
   convert::TryInto,
   io,
   mem::MaybeUninit,
-  string,
   sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
@@ -32,7 +31,7 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use tauri::Manager;
 use thiserror::Error;
 
-use crate::file_manager::{self, FileManager};
+use crate::file_manager::{FileManager};
 // ----- End Imports -----
 
 #[derive(Error, Debug)]
@@ -71,8 +70,8 @@ impl serde::Serialize for ScanError {
 /// Holds the results of a scan
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ScanResult {
-  value: u32,
-  timestamp: u64,
+  pub value: u32,
+  pub timestamp: u64,
 }
 
 /// Game scanning struct. Implements methods for reading values from game memory.
@@ -144,7 +143,6 @@ impl Scanner {
         sys.refresh_all();
         for (pid, process) in sys.processes() {
           if process.name() == "ffxiv_dx11.exe" {
-            println!("GAME FOUND");
             handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
             let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
             base_address.store(ba, Ordering::Relaxed);
@@ -231,7 +229,8 @@ impl Scanner {
       }
     };
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-    FileManager::write_data_to_disk(vec![ScanResult { value: gil, timestamp: 1 }]);
+    let r = ScanResult { value: gil, timestamp: 1 };
+    FileManager::write_data_to_disk(r);
     Ok(gil)
   }
 
