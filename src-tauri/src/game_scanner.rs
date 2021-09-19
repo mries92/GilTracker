@@ -1,8 +1,6 @@
 // ----- Imports -----
 use std::{
   convert::TryInto,
-  io,
-  mem::MaybeUninit,
   sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
@@ -11,27 +9,13 @@ use std::{
   time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-mod bindings {
-  windows::include_bindings!();
-}
-
-use bindings::{
-  Windows::Win32::Foundation::{BOOL, HANDLE, HINSTANCE},
-  Windows::Win32::System::ProcessStatus::K32EnumProcessModules,
-  Windows::Win32::System::Threading::{
-    OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE,
-    PROCESS_VM_READ,
-  },
-  Windows::Win32::System::WindowsProgramming::INFINITE,
-};
-
-use benfred_read_process_memory::{copy_address, Pid, ProcessHandle};
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessExt, System, SystemExt};
 use tauri::Manager;
 use thiserror::Error;
 
-use crate::file_manager::FileManager;
+use crate::{file_manager::FileManager, memory_scanner};
+use crate::{WaitForSingleObject, HANDLE, INFINITE};
 // ----- End Imports -----
 
 #[derive(Error, Debug)]
@@ -143,8 +127,8 @@ impl Scanner {
         sys.refresh_all();
         for (pid, process) in sys.processes() {
           if process.name() == "ffxiv_dx11.exe" {
-            handle = Scanner::get_handle(*pid as u32).expect("Not sure how this happened.");
-            let ba = Scanner::get_module(handle).expect("Module not found.") as usize;
+            handle = memory_scanner::get_handle(*pid).expect("Not sure how this happened.");
+            let ba = memory_scanner::get_module(handle).expect("Module not found.") as usize;
             base_address.store(ba, Ordering::Relaxed);
             process_id.store(*pid, Ordering::Relaxed);
             attached.store(true, Ordering::Relaxed);
@@ -191,6 +175,7 @@ impl Scanner {
 
   // Get the players current Gil
   pub fn get_gil(&self) -> Result<u32, ScanError> {
+    let id = self.process_id.load(Ordering::Relaxed) as u32;
     if !self.attached.load(Ordering::Relaxed) {
       return Err(ScanError::NotAttached);
     }
@@ -198,17 +183,18 @@ impl Scanner {
     let base = self.base_address.as_ref();
 
     // Parse the bytes into a hex string
-    let bytes = self.read_memory(base.load(Ordering::Relaxed) + self.gil_offsets[0], 8)?;
+    let bytes =
+      memory_scanner::read_memory(id, base.load(Ordering::Relaxed) + self.gil_offsets[0], 8)?;
     let str: String = hex::encode(bytes);
     let address = usize::from_str_radix(&str, 16).unwrap();
 
     // First offset
-    let bytes = self.read_memory(address + self.gil_offsets[1], 8)?;
+    let bytes = memory_scanner::read_memory(id, address + self.gil_offsets[1], 8)?;
     let str: String = hex::encode(bytes);
     let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
 
     // Final offset
-    let bytes = self.read_memory(address + self.gil_offsets[2], 4)?;
+    let bytes = memory_scanner::read_memory(id, address + self.gil_offsets[2], 4)?;
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
 
     let r = ScanResult {
@@ -222,53 +208,5 @@ impl Scanner {
       FileManager::write_data_to_disk(r);
     }
     Ok(gil)
-  }
-
-  /// Read an array of bytes from game memory
-  fn read_memory(&self, address: usize, size: usize) -> Result<Vec<u8>, ScanError> {
-    let id = self.process_id.load(Ordering::Relaxed) as Pid;
-    let handle: Result<ProcessHandle, _> = id.try_into();
-    let handle = match handle {
-      Ok(handle) => handle,
-      Err(_) => return Err(ScanError::HandleConversionError),
-    };
-    let bytes = copy_address(address, size, &handle);
-    let mut bytes = match bytes {
-      Ok(bytes) => bytes,
-      Err(_) => return Err(ScanError::MemoryReadError),
-    };
-    bytes.reverse(); // Little endian to big
-    Ok(bytes)
-  }
-
-  // Get a win32 handle to a process by process ID
-  fn get_handle(pid: u32) -> io::Result<HANDLE> {
-    let handle: HANDLE;
-    unsafe {
-      handle = OpenProcess(
-        PROCESS_VM_READ | PROCESS_QUERY_INFORMATION | PROCESS_SYNCHRONIZE,
-        BOOL::from(false),
-        pid,
-      );
-    }
-    Ok(handle)
-  }
-
-  // Get the base module of a process by process ID
-  fn get_module(handle: HANDLE) -> io::Result<u64> {
-    let mut hmods;
-    unsafe {
-      hmods = MaybeUninit::<[MaybeUninit<HINSTANCE>; 1024]>::uninit().assume_init();
-    }
-    let ptr = hmods.as_mut_ptr() as *mut HINSTANCE;
-    let mut cbneeded: u32 = 0;
-    let mut module_id: u64 = 0;
-    unsafe {
-      if K32EnumProcessModules(handle, ptr, 1024, &mut cbneeded) == BOOL::from(true) {
-        // Base module is always first
-        module_id = hmods[0].assume_init().0 as u64;
-      }
-    }
-    Ok(module_id)
   }
 }

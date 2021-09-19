@@ -3,9 +3,26 @@
   windows_subsystem = "windows"
 )]
 
+mod bindings {
+  windows::include_bindings!();
+}
+
+use bindings::{
+  Windows::Win32::Foundation::{BOOL, HINSTANCE, HANDLE},
+  Windows::Win32::System::ProcessStatus::K32EnumProcessModules,
+  Windows::Win32::System::Threading::{
+    OpenProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE,
+    PROCESS_VM_READ,
+  },
+  Windows::Win32::System::WindowsProgramming::INFINITE,
+};
+
+
+
 mod error;
 mod file_manager;
 mod game_scanner;
+mod memory_scanner;
 
 use file_manager::FileManager;
 use game_scanner::{ScanError, ScanResult, Scanner};
