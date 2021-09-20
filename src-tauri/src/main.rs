@@ -24,7 +24,7 @@ mod file_manager;
 mod game_scanner;
 mod memory_scanner;
 
-use file_manager::FileManager;
+use file_manager::{FileManager};
 use game_scanner::{ScanError, ScanResult, Scanner};
 use std::env;
 use tauri::Manager;
@@ -45,7 +45,9 @@ fn main() {
     tauri::Builder::default()
       .setup(|app| {
         let scanner = Scanner::new(app.handle());
+        let file_manager = FileManager::new();
         app.manage(scanner);
+        app.manage(file_manager);
         Ok(())
       })
       .invoke_handler(tauri::generate_handler![get_currency, is_attached, load_from_disk])
@@ -67,12 +69,12 @@ fn is_attached(scanner: tauri::State<Scanner>) -> bool {
 }
 
 #[tauri::command]
-fn get_currency(scanner: tauri::State<Scanner>) -> Result<ScanResult, ScanError> {
-  scanner.get_currency()
+fn get_currency(scanner: tauri::State<Scanner>, fm: tauri::State<FileManager>) -> Result<ScanResult, ScanError> {
+  scanner.get_currency(&fm)
 }
 
 #[tauri::command]
-fn load_from_disk() -> Vec<ScanResult> {
-  let data = FileManager::read_data_from_disk();
+fn load_from_disk(manager: tauri::State<FileManager>) -> Vec<ScanResult> {
+  let data = manager.read_data_from_disk();
   return data;
 }

@@ -187,10 +187,11 @@ impl Scanner {
     });
   }
 
-  pub fn get_currency(&self) -> Result<ScanResult, ScanError> {
+  pub fn get_currency(&self, fm: &FileManager) -> Result<ScanResult, ScanError> {
     let mut result = ScanResult::new();
     result.gil = self.get_gil()?;
     result.timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    fm.write_data_to_disk(&result);
     Ok(result)
   }
 

@@ -25,6 +25,10 @@ hex = "0.4.3"
 windows = "0.19.0"
 thiserror = "1.0.29"
 
+[dependencies.rusqlite]
+version = "0.25.3"
+features = ["bundled"]
+
 [features]
 default = [ "custom-protocol" ]
 custom-protocol = [ "tauri/custom-protocol" ]
