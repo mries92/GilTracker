@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     selectIntervalElement.addEventListener('change', function (this) {
         window.clearInterval(scanIntervalId);
-        window.setInterval(get_currency, this.options[this.selectedIndex].value as unknown as number);
+        scanIntervalId = window.setInterval(get_currency, this.options[this.selectedIndex].value as unknown as number);
     });
 
     // Initial attach check

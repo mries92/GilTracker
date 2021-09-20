@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection, Result};
+use rusqlite::Connection;
 use std::{
-  fs,
+  convert::TryInto,
   sync::{Arc, Mutex},
 };
 
@@ -21,12 +21,16 @@ impl FileManager {
     };
     let con = fm.connection.clone();
     let con = con.lock().unwrap();
-    let _ = con.execute("
+    let _ = con.execute(
+      "
     CREATE TABLE ScanResults(
     id INTEGER PRIMARY KEY,
     gil INTEGER,
     mgp INTEGER,
-    company_seals INTEGER)",[],);
+    company_seals INTEGER,
+    timestamp INTEGER)",
+      [],
+    );
     return fm;
   }
 
@@ -42,14 +46,16 @@ impl FileManager {
     let mut prep = con
       .prepare("SELECT * FROM ScanResults")
       .expect("Trouble preparing statement"); //TODO map this
-    let iter = prep.query_map([], |row| {
-      Ok(ScanResult {
-        gil: row.get(1)?,
-        mgp: row.get(2)?,
-        company_seals: row.get(3)?,
-        timestamp: row.get(4)?,
+    let iter = prep
+      .query_map([], |row| {
+        Ok(ScanResult {
+          gil: row.get(1)?,
+          mgp: row.get(2)?,
+          company_seals: row.get(3)?,
+          timestamp: row.get(4)?,
+        })
       })
-    }).expect("Failed to map entity");
+      .expect("Failed to map entity");
 
     let mut results: Vec<ScanResult> = vec![];
     for result in iter {
@@ -66,9 +72,14 @@ impl FileManager {
     con
       .execute(
         "
-    INSERT INTO ScanResults (gil, mgp, company_seals)
-    VALUES (?1, ?2, ?3)",
-        [item.gil, item.mgp, item.company_seals],
+    INSERT INTO ScanResults (gil, mgp, company_seals, timestamp)
+    VALUES (?1, ?2, ?3, ?4)",
+        [
+          item.gil,
+          item.mgp,
+          item.company_seals,
+          item.timestamp.try_into().unwrap(),
+        ],
       )
       .unwrap();
   }
