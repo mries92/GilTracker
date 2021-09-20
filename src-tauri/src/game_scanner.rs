@@ -54,8 +54,22 @@ impl serde::Serialize for ScanError {
 /// Holds the results of a scan
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ScanResult {
-  pub value: u32,
+  pub gil: u32,
+  pub mgp: u32,
+  pub company_seals: u32,
   pub timestamp: u64,
+}
+
+impl ScanResult {
+  fn new() -> ScanResult {
+    let instance = ScanResult {
+        gil: 0,
+        mgp: 0,
+        company_seals: 0,
+        timestamp: 0,
+    };
+    return instance;
+  }
 }
 
 /// Game scanning struct. Implements methods for reading values from game memory.
@@ -173,8 +187,15 @@ impl Scanner {
     });
   }
 
+  pub fn get_currency(&self) -> Result<ScanResult, ScanError> {
+    let mut result = ScanResult::new();
+    result.gil = self.get_gil()?;
+    result.timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    Ok(result)
+  }
+
   // Get the players current Gil
-  pub fn get_gil(&self) -> Result<u32, ScanError> {
+  fn get_gil(&self) -> Result<u32, ScanError> {
     let id = self.process_id.load(Ordering::Relaxed) as u32;
     if !self.attached.load(Ordering::Relaxed) {
       return Err(ScanError::NotAttached);
@@ -197,16 +218,6 @@ impl Scanner {
     let bytes = memory_scanner::read_memory(id, address + self.gil_offsets[2], 4)?;
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
 
-    let r = ScanResult {
-      value: gil,
-      timestamp: SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Impossible")
-        .as_millis() as u64,
-    };
-    if r.value != 0 {
-      FileManager::write_data_to_disk(r);
-    }
     Ok(gil)
   }
 }

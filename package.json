@@ -16,6 +16,8 @@
     "@tauri-apps/api": "^1.0.0-beta.8",
     "@types/chart.js": "^2.9.34",
     "@types/offscreencanvas": "^2019.6.3",
-    "chart.js": "^3.5.1"
+    "chart.js": "^3.5.1",
+    "chartjs-adapter-date-fns": "^2.0.0",
+    "date-fns": "^2.24.0"
   }
 }

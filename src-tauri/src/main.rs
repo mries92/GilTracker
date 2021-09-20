@@ -48,7 +48,7 @@ fn main() {
         app.manage(scanner);
         Ok(())
       })
-      .invoke_handler(tauri::generate_handler![get_gil, is_attached, load_from_disk])
+      .invoke_handler(tauri::generate_handler![get_currency, is_attached, load_from_disk])
       .run(tauri::generate_context!())
       .expect("error while running tauri application");
   }
@@ -67,8 +67,8 @@ fn is_attached(scanner: tauri::State<Scanner>) -> bool {
 }
 
 #[tauri::command]
-fn get_gil(scanner: tauri::State<Scanner>) -> Result<u32, ScanError> {
-  scanner.get_gil()
+fn get_currency(scanner: tauri::State<Scanner>) -> Result<ScanResult, ScanError> {
+  scanner.get_currency()
 }
 
 #[tauri::command]

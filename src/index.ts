@@ -1,20 +1,25 @@
-import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController } from 'chart.js'
+import { Chart, LinearScale, CategoryScale, LineElement, PointElement, LineController, TimeScale } from 'chart.js'
+import 'chartjs-adapter-date-fns';
 import { invoke } from '@tauri-apps/api/tauri'
 import { emit, Event, EventCallback, listen } from '@tauri-apps/api/event'
 import { event } from '@tauri-apps/api';
+import { Response } from '@tauri-apps/api/http';
 
 Chart.register(
+    TimeScale,
     LinearScale,
     CategoryScale,
     LineElement,
     PointElement,
-    LineController
+    LineController,
 );
 
 let chart: Chart;
 
 class ScanResult {
-    value: number = 0;
+    gil = 0;
+    mgp = 0;
+    companySeals = 0;
     timestamp: number = 0;
 }
 
@@ -65,7 +70,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     selectIntervalElement.addEventListener('change', function (this) {
         window.clearInterval(scanIntervalId);
-        window.setInterval(get_gil, this.options[this.selectedIndex].value as unknown as number);
+        window.setInterval(get_currency, this.options[this.selectedIndex].value as unknown as number);
     });
 
     // Initial attach check
@@ -101,6 +106,14 @@ window.addEventListener('DOMContentLoaded', async () => {
                 }]
             },
             options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'minute'
+                        }
+                    }
+                },
                 plugins: {
                     legend: {
                         display: false
@@ -115,9 +128,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     invoke('load_from_disk').then(function(val) {
         let a = val as Array<ScanResult>;
         a.forEach(result => {
-            chart.data.labels?.push(index);
+            chart.data.labels?.push(result.timestamp);
             chart.data.datasets.forEach((dataset) => {
-                dataset.data.push(result.value);
+                dataset.data.push(result.gil);
             });
             index++;
             chart.update();
@@ -125,14 +138,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
 })
 
-function get_gil() {
-    let p = invoke('get_gil');
+function get_currency() {
+    let p: Promise<ScanResult> = invoke('get_currency');
     p.then((g) => {
         // Wallet value will read as 0 until player is fully logged in
-        if (g != 0) {
-            chart.data.labels?.push(1);
+        if (g.gil != 0) {
+            chart.data.labels?.push(g.timestamp);
             chart.data.datasets.forEach((dataset) => {
-                dataset.data.push(g as number);
+                dataset.data.push(g.gil as number);
             });
             chart.update();
         }
@@ -146,11 +159,7 @@ function set_attached(attached: boolean) {
     if(attached) {
         statusCircleElement.style.fill = "limegreen";
         statusTextElement.innerHTML = STATUS_ATTACHED;
-        scanIntervalId = window.setInterval(function () {
-            invoke('get_gil').then(function (value) {
-                console.log(value);
-            }).catch(function (_) { /* Scan failed for some reason, gobble it */ });
-        }, +selectIntervalElement.options[selectIntervalElement.selectedIndex].value);
+        scanIntervalId = window.setInterval(get_currency, +selectIntervalElement.options[selectIntervalElement.selectedIndex].value);
     } else {
         statusCircleElement.style.fill = "red";
         statusTextElement.innerHTML = STATUS_DISCONNETED;
