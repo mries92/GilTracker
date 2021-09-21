@@ -151,11 +151,8 @@ impl Scanner {
             handle = memory_scanner::get_handle(*pid).expect("Not sure how this happened.");
             let ba = memory_scanner::get_module(handle).expect("Module not found.") as usize;
             base_address.store(ba, Ordering::Relaxed);
-            let wa = get_wallet_address(
-              *pid as u32,
-              ba
-            )
-            .expect("Could not determine wallet address."); //TODO fix this lazy
+            let wa =
+              get_wallet_address(*pid as u32, ba).expect("Could not determine wallet address."); //TODO fix this lazy
             wallet_address.store(wa, Ordering::Relaxed);
             process_id.store(*pid, Ordering::Relaxed);
             attached.store(true, Ordering::Relaxed);
@@ -202,9 +199,9 @@ impl Scanner {
 
   pub fn get_currency(&self, fm: &FileManager) -> Result<ScanResult, ScanError> {
     let mut result = ScanResult::new();
-    result.gil = self.get_gil()?;
-    result.mgp = self.get_mgp()?;
-    result.company_seals = self.get_company_seals()?;
+    result.gil = self.read_currency(self.gil_offset)?;
+    result.mgp = self.read_currency(self.mgp_offset)?;
+    result.company_seals = self.read_currency(self.company_seals_offset)?;
     result.timestamp = SystemTime::now()
       .duration_since(UNIX_EPOCH)
       .unwrap()
@@ -213,41 +210,30 @@ impl Scanner {
     Ok(result)
   }
 
-  // TODO these should all be replaced with a generic read function that takes an offset from the wallet
-  // Get the players current Gil
-  fn get_gil(&self) -> Result<u32, ScanError> {
+  /// Get the current amount of a players currency, given an offset
+  fn read_currency(&self, offset: usize) -> Result<u32,ScanError> {
     let id = self.process_id.load(Ordering::Relaxed) as u32;
-    let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.gil_offset, 4)?;
-    let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-    Ok(gil)
-  }
-
-  fn get_mgp(&self) -> Result<u32, ScanError> {
-    let id = self.process_id.load(Ordering::Relaxed) as u32;
-    let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.mgp_offset, 4)?;
-    let mgp = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-    Ok(mgp)
-  }
-
-  fn get_company_seals(&self) -> Result<u32, ScanError> {
-    let id = self.process_id.load(Ordering::Relaxed) as u32;
-    let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.company_seals_offset, 4)?;
-    let cs = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-    Ok(cs)
+    let bytes = memory_scanner::read_memory(
+      id,
+      self.wallet_address.load(Ordering::Relaxed) + offset,
+      4,
+    )?;
+    let value = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
+    Ok(value)
   }
 }
 
-  // Gets the players wallet address
-  fn get_wallet_address(process_id: u32, base_address: usize) -> Result<usize, ScanError> {
-    // First offset
-    let bytes = memory_scanner::read_memory(process_id, base_address + 0x01DD4358, 8)?;
-    let str: String = hex::encode(bytes);
-    let address = usize::from_str_radix(&str, 16).unwrap();
+// Gets the players wallet address
+fn get_wallet_address(process_id: u32, base_address: usize) -> Result<usize, ScanError> {
+  // First offset
+  let bytes = memory_scanner::read_memory(process_id, base_address + 0x01DD4358, 8)?;
+  let str: String = hex::encode(bytes);
+  let address = usize::from_str_radix(&str, 16).unwrap();
 
-    // Second offset
-    let bytes = memory_scanner::read_memory(process_id, address + 0x78, 8)?;
-    let str: String = hex::encode(bytes);
-    let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+  // Second offset
+  let bytes = memory_scanner::read_memory(process_id, address + 0x78, 8)?;
+  let str: String = hex::encode(bytes);
+  let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
 
-    Ok(address)
-  }
+  Ok(address)
+}
