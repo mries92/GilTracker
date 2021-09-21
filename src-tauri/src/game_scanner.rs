@@ -75,6 +75,8 @@ impl ScanResult {
 /// Game scanning struct. Implements methods for reading values from game memory.
 pub struct Scanner {
   gil_offset: usize,
+  mgp_offset: usize,
+  company_seals_offset: usize,
   attached: Arc<AtomicBool>,
   process_id: Arc<AtomicUsize>,      // Base process id
   base_address: Arc<AtomicUsize>,    // Base address
@@ -110,6 +112,8 @@ impl Scanner {
       base_address: Arc::new(AtomicUsize::new(1)),
       wallet_address: Arc::new(AtomicUsize::new(1)),
       gil_offset: 0xC,
+      mgp_offset: 0x204,
+      company_seals_offset: 0x7C,
     };
     scanner.start_scan();
     return scanner;
@@ -199,6 +203,8 @@ impl Scanner {
   pub fn get_currency(&self, fm: &FileManager) -> Result<ScanResult, ScanError> {
     let mut result = ScanResult::new();
     result.gil = self.get_gil()?;
+    result.mgp = self.get_mgp()?;
+    result.company_seals = self.get_company_seals()?;
     result.timestamp = SystemTime::now()
       .duration_since(UNIX_EPOCH)
       .unwrap()
@@ -207,12 +213,27 @@ impl Scanner {
     Ok(result)
   }
 
+  // TODO these should all be replaced with a generic read function that takes an offset from the wallet
   // Get the players current Gil
   fn get_gil(&self) -> Result<u32, ScanError> {
     let id = self.process_id.load(Ordering::Relaxed) as u32;
     let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.gil_offset, 4)?;
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
     Ok(gil)
+  }
+
+  fn get_mgp(&self) -> Result<u32, ScanError> {
+    let id = self.process_id.load(Ordering::Relaxed) as u32;
+    let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.mgp_offset, 4)?;
+    let mgp = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
+    Ok(mgp)
+  }
+
+  fn get_company_seals(&self) -> Result<u32, ScanError> {
+    let id = self.process_id.load(Ordering::Relaxed) as u32;
+    let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.company_seals_offset, 4)?;
+    let cs = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
+    Ok(cs)
   }
 }
 
