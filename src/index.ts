@@ -79,8 +79,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             set_attached(true);
     });
 
-    
-
     // Backend event listeners
     await listen("ScanEvent", event => {
         let payload: ScanEvent = event.payload as ScanEvent;
@@ -106,26 +104,15 @@ window.addEventListener('DOMContentLoaded', async () => {
                 }]
             },
             options: {
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'minute'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
+                scales: {x: { type: 'time', time: { unit: 'minute' }}},
+                plugins: { legend: { display: false }},
                 maintainAspectRatio: false
             },
         });
     }
 
     // Load data from disk
-    invoke('load_from_disk').then(function(val) {
+    invoke('load_from_disk').then(function (val) {
         let a = val as Array<ScanResult>;
         a.forEach(result => {
             chart.data.labels?.push(result.timestamp);
@@ -156,7 +143,7 @@ function get_currency() {
 
 // Control behavior based on whether the game is attached
 function set_attached(attached: boolean) {
-    if(attached) {
+    if (attached) {
         statusCircleElement.style.fill = "limegreen";
         statusTextElement.innerHTML = STATUS_ATTACHED;
         scanIntervalId = window.setInterval(get_currency, +selectIntervalElement.options[selectIntervalElement.selectedIndex].value);

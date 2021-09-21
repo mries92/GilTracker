@@ -75,10 +75,10 @@ impl FileManager {
     INSERT INTO ScanResults (gil, mgp, company_seals, timestamp)
     VALUES (?1, ?2, ?3, ?4)",
         [
-          item.gil,
-          item.mgp,
-          item.company_seals,
-          item.timestamp.try_into().unwrap(),
+          item.gil as u64,
+          item.mgp as u64,
+          item.company_seals as u64,
+          item.timestamp,
         ],
       )
       .unwrap();

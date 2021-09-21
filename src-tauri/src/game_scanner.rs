@@ -63,10 +63,10 @@ pub struct ScanResult {
 impl ScanResult {
   fn new() -> ScanResult {
     let instance = ScanResult {
-        gil: 0,
-        mgp: 0,
-        company_seals: 0,
-        timestamp: 0,
+      gil: 0,
+      mgp: 0,
+      company_seals: 0,
+      timestamp: 0,
     };
     return instance;
   }
@@ -74,10 +74,11 @@ impl ScanResult {
 
 /// Game scanning struct. Implements methods for reading values from game memory.
 pub struct Scanner {
-  gil_offsets: [usize; 3],
+  gil_offset: usize,
   attached: Arc<AtomicBool>,
   process_id: Arc<AtomicUsize>,      // Base process id
   base_address: Arc<AtomicUsize>,    // Base address
+  wallet_address: Arc<AtomicUsize>,  // Base wallet address
   app: Arc<Mutex<tauri::AppHandle>>, // Reference to the base application
 }
 
@@ -107,7 +108,8 @@ impl Scanner {
       attached: Arc::new(AtomicBool::new(false)),
       process_id: Arc::new(AtomicUsize::new(1)),
       base_address: Arc::new(AtomicUsize::new(1)),
-      gil_offsets: [0x01DD4358, 0x78, 0xC],
+      wallet_address: Arc::new(AtomicUsize::new(1)),
+      gil_offset: 0xC,
     };
     scanner.start_scan();
     return scanner;
@@ -128,6 +130,7 @@ impl Scanner {
   fn start_scan(&self) {
     self.attached.store(false, Ordering::Relaxed);
     let base_address = self.base_address.clone();
+    let wallet_address = self.wallet_address.clone();
     let process_id = self.process_id.clone();
     let attached = self.attached.clone();
     let app = self.app.clone();
@@ -144,6 +147,12 @@ impl Scanner {
             handle = memory_scanner::get_handle(*pid).expect("Not sure how this happened.");
             let ba = memory_scanner::get_module(handle).expect("Module not found.") as usize;
             base_address.store(ba, Ordering::Relaxed);
+            let wa = get_wallet_address(
+              *pid as u32,
+              ba
+            )
+            .expect("Could not determine wallet address."); //TODO fix this lazy
+            wallet_address.store(wa, Ordering::Relaxed);
             process_id.store(*pid, Ordering::Relaxed);
             attached.store(true, Ordering::Relaxed);
             app
@@ -190,7 +199,10 @@ impl Scanner {
   pub fn get_currency(&self, fm: &FileManager) -> Result<ScanResult, ScanError> {
     let mut result = ScanResult::new();
     result.gil = self.get_gil()?;
-    result.timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    result.timestamp = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .unwrap()
+      .as_millis() as u64;
     fm.write_data_to_disk(&result);
     Ok(result)
   }
@@ -198,27 +210,23 @@ impl Scanner {
   // Get the players current Gil
   fn get_gil(&self) -> Result<u32, ScanError> {
     let id = self.process_id.load(Ordering::Relaxed) as u32;
-    if !self.attached.load(Ordering::Relaxed) {
-      return Err(ScanError::NotAttached);
-    }
-    // Static pointer
-    let base = self.base_address.as_ref();
-
-    // Parse the bytes into a hex string
-    let bytes =
-      memory_scanner::read_memory(id, base.load(Ordering::Relaxed) + self.gil_offsets[0], 8)?;
-    let str: String = hex::encode(bytes);
-    let address = usize::from_str_radix(&str, 16).unwrap();
-
-    // First offset
-    let bytes = memory_scanner::read_memory(id, address + self.gil_offsets[1], 8)?;
-    let str: String = hex::encode(bytes);
-    let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
-
-    // Final offset
-    let bytes = memory_scanner::read_memory(id, address + self.gil_offsets[2], 4)?;
+    let bytes = memory_scanner::read_memory(id, self.wallet_address.load(Ordering::Relaxed) + self.gil_offset, 4)?;
     let gil = u32::from_be_bytes(bytes.try_into().expect("Should always have a value"));
-
     Ok(gil)
   }
 }
+
+  // Gets the players wallet address
+  fn get_wallet_address(process_id: u32, base_address: usize) -> Result<usize, ScanError> {
+    // First offset
+    let bytes = memory_scanner::read_memory(process_id, base_address + 0x01DD4358, 8)?;
+    let str: String = hex::encode(bytes);
+    let address = usize::from_str_radix(&str, 16).unwrap();
+
+    // Second offset
+    let bytes = memory_scanner::read_memory(process_id, address + 0x78, 8)?;
+    let str: String = hex::encode(bytes);
+    let address: usize = usize::from_str_radix(&str, 16).unwrap().try_into().unwrap();
+
+    Ok(address)
+  }
